@@ -180,6 +180,45 @@ _RENDERER_CONFIGS: dict[str, dict] = {
             "specular":      "texmap_reflection",
         },
     },
+    "octane_standard": {
+        "material_class": "Std_Surface_Mtl",
+        "slots": {
+            "diffuse":       "baseColor_tex",
+            "roughness":     "roughness_tex",
+            "glossiness":    "roughness_tex",
+            "metallic":      "metallic_tex",
+            "opacity":       "opacity_tex",
+            "emission":      "emissionColor_tex",
+            "translucency":  "transmissionColor_tex",
+            "specular":      "specularColor_tex",
+        },
+    },
+    "octane_pbr": {
+        "material_class": "Open_PBR_Surf__Mtl",
+        "slots": {
+            "diffuse":       "baseColor_tex",
+            "roughness":     "roughness_tex",
+            "glossiness":    "roughness_tex",
+            "metallic":      "metallic_tex",
+            "opacity":       "opacity_tex",
+            "emission":      "emissionColor_tex",
+            "translucency":  "transmissionColor_tex",
+            "specular":      "specularColor_tex",
+        },
+    },
+    "octane_universal": {
+        "material_class": "Universal_material",
+        "slots": {
+            "diffuse":       "albedo_tex",
+            "roughness":     "roughness_tex",
+            "glossiness":    "roughness_tex",
+            "metallic":      "metallic_tex",
+            "opacity":       "opacity_tex",
+            "emission":      "emission",
+            "translucency":  "transmission_tex",
+            "specular":      "specular_tex",
+        },
+    },
 }
 
 _PBR_SLOT_CANDIDATES: dict[str, dict[str, list[str]]] = {
@@ -266,7 +305,54 @@ _PBR_SLOT_CANDIDATES: dict[str, dict[str, list[str]]] = {
         "translucency": ["texmap_translucent", "translucent_texmap", "texmap_translucency"],
         "specular":     ["texmap_reflection", "reflection_texmap", "reflectionMap"],
     },
+    "octane_standard": {
+        "diffuse":      ["baseColor_tex", "albedo_tex"],
+        "ao":           ["baseColor_tex", "albedo_tex"],
+        "roughness":    ["roughness_tex"],
+        "glossiness":   ["roughness_tex"],
+        "metallic":     ["metallic_tex"],
+        "normal":       ["normal_tex"],
+        "bump":         ["bump_tex"],
+        "displacement": ["displacement"],
+        "opacity":      ["opacity_tex"],
+        "emission":     ["emissionColor_tex", "emission"],
+        "translucency": ["transmissionColor_tex", "transmission_tex"],
+        "specular":     ["specularColor_tex", "specular_tex"],
+    },
+    "octane_pbr": {
+        "diffuse":      ["baseColor_tex"],
+        "ao":           ["baseColor_tex"],
+        "roughness":    ["roughness_tex"],
+        "glossiness":   ["roughness_tex"],
+        "metallic":     ["metallic_tex"],
+        "normal":       ["normal_tex"],
+        "bump":         ["bump_tex"],
+        "displacement": ["displacement"],
+        "opacity":      ["opacity_tex"],
+        "emission":     ["emissionColor_tex", "emission"],
+        "translucency": ["transmissionColor_tex"],
+        "specular":     ["specularColor_tex", "specular_tex"],
+    },
+    "octane_universal": {
+        "diffuse":      ["albedo_tex"],
+        "ao":           ["albedo_tex"],
+        "roughness":    ["roughness_tex"],
+        "glossiness":   ["roughness_tex"],
+        "metallic":     ["metallic_tex"],
+        "normal":       ["normal_tex"],
+        "bump":         ["bump_tex"],
+        "displacement": ["displacement"],
+        "opacity":      ["opacity_tex"],
+        "emission":     ["emission"],
+        "translucency": ["transmission_tex"],
+        "specular":     ["specular_tex"],
+    },
 }
+
+# Octane Channel_picker.colorChannel values for ORM split (R/G/B)
+_OCTANE_CH_R = 0
+_OCTANE_CH_G = 1
+_OCTANE_CH_B = 2
 
 
 def _scan_texture_folder(folder: str) -> list[Path]:
@@ -421,6 +507,22 @@ def _renderer_from_material_class(material_class: str) -> str | None:
         return "openpbr"
     if class_lower in {"materialx", "material_x", "mtlx", "openpbr_materialx", "openpbr+materialx"} or "materialx" in class_lower:
         return "materialx"
+    # Octane variants — match before generic substring checks below.
+    if (class_lower in {"open_pbr_surf__mtl", "open_pbr_surf_mtl", "octanepbr", "octane_pbr",
+                        "octane_openpbr", "octane_open_pbr", "octaneopenpbr"}
+            or "open_pbr_surf" in class_lower
+            or "openpbrsurf" in class_lower):
+        return "octane_pbr"
+    if (class_lower in {"universal_material", "octaneuniversal", "octane_universal",
+                        "octane_universal_material"}
+            or "universal_material" in class_lower):
+        return "octane_universal"
+    if (class_lower in {"octane", "octane_standard", "octane_std", "octanestd",
+                        "octanestandard", "octane_std_surface", "octanestdsurface",
+                        "std_surface_mtl", "std_surface", "octane_surface"}
+            or "std_surface_mtl" in class_lower
+            or class_lower.startswith("octane")):
+        return "octane_standard"
     if class_lower in {"physical", "physicalmaterial", "autodeskphysical"} or "physical" in class_lower:
         return "physical"
     if class_lower in {"arnold", "ai_standard_surface", "standard_surface"} or "ai_standard" in class_lower:
@@ -468,6 +570,17 @@ def _material_slot_hints(material_class: str) -> dict[str, str]:
             "preferredBitmapClass": "Bitmaptexture",
             "normalHelperClass": "Normal_Bump",
             "bumpHelperClass": "Normal_Bump",
+        }
+    if cls in {"std_surface_mtl", "open_pbr_surf__mtl", "open_pbr_surf_mtl",
+               "universal_material"} or "std_surface_mtl" in cls or cls.startswith("octane"):
+        return {
+            "preferredBitmapClass": "Image_MTX",
+            "normalHelperClass": "",
+            "bumpHelperClass": "",
+            "channelPickerClass": "Channel_picker",
+            "compositeMultiplyClass": "Multiply_MTX",
+            "invertClass": "Invert_MTX",
+            "texInputTypeFlag": "_input_type=2",
         }
     return {
         "preferredBitmapClass": "Bitmaptexture",
@@ -1740,7 +1853,11 @@ def _build_material_editor_pbr_palette_maxscript(
         "arnold": "Arnold ai_standard_surface",
         "redshift": "Redshift RS_Standard_Material",
         "vray": "V-Ray VRayMtl",
+        "octane_standard": "Octane Std Surface (Std_Surface_Mtl)",
+        "octane_pbr": "Octane Open PBR Surface (Open_PBR_Surf__Mtl)",
+        "octane_universal": "Octane Universal (Universal_material)",
     }[renderer]
+    is_octane = renderer.startswith("octane")
 
     lines: list[str] = [
         "fn mcp_setFirstMap target propNames tex = (",
@@ -1759,6 +1876,13 @@ def _build_material_editor_pbr_palette_maxscript(
         "    if slotName != undefined do (",
         '        try (setProperty target ((slotName + "_on") as name) true) catch ()',
         '        try (setProperty target ((slotName + "_enable") as name) true) catch ()',
+        '        try (',
+        '            local s = slotName as string',
+        '            if matchPattern s pattern:"*_tex" do (',
+        '                local prefix = substring s 1 (s.count - 4)',
+        '                setProperty target ((prefix + "_input_type") as name) 2',
+        '            )',
+        '        ) catch ()',
         "    )",
         ")",
         "fn mcp_createOpenPbrPreferred matName = (",
@@ -1801,7 +1925,7 @@ def _build_material_editor_pbr_palette_maxscript(
             ")",
         ])
 
-    if renderer != "materialx" and any("orm" in group["channels"] for group in groups):
+    if renderer != "materialx" and not is_octane and any("orm" in group["channels"] for group in groups):
         lines.append('local oslPath = (getDir #maxRoot) + "OSL\\\\UberBitmap2.osl"')
 
     if open_editor:
@@ -1842,6 +1966,15 @@ def _build_material_editor_pbr_palette_maxscript(
         elif renderer == "arnold":
             color_space = "sRGB" if channel in _COLOR_CHANNELS else "Raw"
             lines.append(f'    local {var} = ai_image name:"{tex_name}" filename:@"{path_literal}" color_space:"{color_space}"')
+        elif is_octane:
+            # Leave colorSpace at Octane's default (_OctaneBuildIn_LINEAR_sRGB).
+            # Other strings like "sRGB" or "_OctaneBuildIn_LINEAR" fall through to
+            # OCIO lookup and error when no OCIO config is loaded. The material's
+            # slot semantics (basecolor vs roughness vs metallic) drive how Octane
+            # interprets the texture data, not this string.
+            lines.append(f'    local {var} = Image_MTX()')
+            lines.append(f'    {var}.name = "{tex_name}"')
+            lines.append(f'    {var}.filename = @"{path_literal}"')
         else:
             lines.append(f'    local {var} = Bitmaptexture name:"{tex_name}" filename:@"{path_literal}"')
 
@@ -1866,6 +1999,28 @@ def _build_material_editor_pbr_palette_maxscript(
                 f'    local {out_b} = mcp_makeMaterialXOslMap "extract_color3.osl" "{tex_name}_Metallic_B"',
                 f"    {out_b}.In_map = {uber}",
                 f"    {out_b}.index = 2",
+            ])
+            return {"ao": out_r, "roughness": out_g, "metallic": out_b}
+        if is_octane:
+            lines.extend([
+                f'    local {uber} = Image_MTX()',
+                f'    {uber}.name = "{tex_name}"',
+                f'    {uber}.filename = @"{path_literal}"',
+                f'    local {out_r} = Channel_picker()',
+                f'    {out_r}.name = "{tex_name}_AO_R"',
+                f'    {out_r}.texture_tex = {uber}',
+                f'    {out_r}.texture_input_type = 2',
+                f'    {out_r}.colorChannel = {_OCTANE_CH_R}',
+                f'    local {out_g} = Channel_picker()',
+                f'    {out_g}.name = "{tex_name}_Rough_G"',
+                f'    {out_g}.texture_tex = {uber}',
+                f'    {out_g}.texture_input_type = 2',
+                f'    {out_g}.colorChannel = {_OCTANE_CH_G}',
+                f'    local {out_b} = Channel_picker()',
+                f'    {out_b}.name = "{tex_name}_Metal_B"',
+                f'    {out_b}.texture_tex = {uber}',
+                f'    {out_b}.texture_input_type = 2',
+                f'    {out_b}.colorChannel = {_OCTANE_CH_B}',
             ])
             return {"ao": out_r, "roughness": out_g, "metallic": out_b}
         lines.extend([
@@ -1901,6 +2056,12 @@ def _build_material_editor_pbr_palette_maxscript(
             lines.append(f'    local {mat_var} = ai_standard_surface name:"{mat_name}"')
         elif renderer == "redshift":
             lines.append(f'    local {mat_var} = RS_Standard_Material name:"{mat_name}"')
+        elif renderer == "octane_standard":
+            lines.append(f'    local {mat_var} = Std_Surface_Mtl name:"{mat_name}"')
+        elif renderer == "octane_pbr":
+            lines.append(f'    local {mat_var} = Open_PBR_Surf__Mtl name:"{mat_name}"')
+        elif renderer == "octane_universal":
+            lines.append(f'    local {mat_var} = Universal_material name:"{mat_name}"')
         else:
             lines.append(f'    local {mat_var} = VRayMtl name:"{mat_name}"')
             lines.append(f"    try ({mat_var}.brdf_useRoughness = true) catch ()")
@@ -1941,6 +2102,18 @@ def _build_material_editor_pbr_palette_maxscript(
                         f"    {comp_var}.input1_shader = {diffuse_var}",
                         f"    {comp_var}.input2_shader = {ao_var}",
                     ])
+                elif is_octane:
+                    # Multiply_MTX collapses color to greyscale regardless of
+                    # textureValueType. Multiply_texture preserves RGB.
+                    comp_var = f"g{idx}_diffuse_ao"
+                    lines.extend([
+                        f'    local {comp_var} = Multiply_texture()',
+                        f'    {comp_var}.name = "Diffuse_AO"',
+                        f"    {comp_var}.texture1_tex = {diffuse_var}",
+                        f"    {comp_var}.texture1_input_type = 2",
+                        f"    {comp_var}.texture2_tex = {ao_var}",
+                        f"    {comp_var}.texture2_input_type = 2",
+                    ])
                 else:
                     comp_var = f"g{idx}_diffuse_ao"
                     lines.extend([
@@ -1965,6 +2138,13 @@ def _build_material_editor_pbr_palette_maxscript(
                     f'    local {inv_var} = mcp_makeMaterialXOslMap "invert_float.osl" "GlossToRough"',
                     f"    {inv_var}.In_map = {map_vars['glossiness']}",
                     f"    {inv_var}.amount = 1.0",
+                ])
+            elif is_octane:
+                lines.extend([
+                    f'    local {inv_var} = Invert_MTX()',
+                    f'    {inv_var}.name = "GlossToRough"',
+                    f"    {inv_var}.input_tex = {map_vars['glossiness']}",
+                    f"    {inv_var}.input_input_type = 2",
                 ])
             else:
                 lines.extend([
@@ -2017,6 +2197,10 @@ def _build_material_editor_pbr_palette_maxscript(
                 ])
                 if "bump" in map_vars:
                     lines.append(f"    {final_normal}.bump_map = {map_vars['bump']}")
+            elif is_octane:
+                # Octane materials have both normal_tex and bump_tex slots; wire each directly.
+                # Bump is wired below in its own block when also present.
+                final_normal = map_vars['normal']
             else:
                 final_normal = f"g{idx}_normal_node"
                 lines.extend([
@@ -2026,6 +2210,8 @@ def _build_material_editor_pbr_palette_maxscript(
                 if "bump" in map_vars:
                     lines.append(f"    {final_normal}.bump_map = {map_vars['bump']}")
             add_wire(mat_var, f"slot_{idx}_normal", "normal", final_normal, slots["normal"])
+            if is_octane and "bump" in map_vars:
+                add_wire(mat_var, f"slot_{idx}_bump", "bump", map_vars["bump"], slots["bump"])
         elif "bump" in map_vars:
             if renderer == "materialx":
                 height_node = f"g{idx}_height_to_normal"
@@ -2054,6 +2240,8 @@ def _build_material_editor_pbr_palette_maxscript(
                 ])
             elif renderer == "vray":
                 bump_node = map_vars["bump"]
+            elif is_octane:
+                bump_node = map_vars["bump"]
             else:
                 bump_node = f"g{idx}_bump_node"
                 lines.extend([
@@ -2070,10 +2258,21 @@ def _build_material_editor_pbr_palette_maxscript(
             if channel not in map_vars:
                 continue
             candidates = slots.get(channel)
-            if candidates:
-                add_wire(mat_var, f"slot_{idx}_{channel}", channel, map_vars[channel], candidates)
-            else:
+            if not candidates:
                 lines.append(f'    skippedList += "{channel}, "')
+                continue
+            wire_var = map_vars[channel]
+            if channel == "displacement" and is_octane:
+                # Octane's displacement slot rejects raw Image_MTX; wrap in Texture_displacement.
+                td_var = f"g{idx}_disp_node"
+                lines.extend([
+                    f'    local {td_var} = Texture_displacement()',
+                    f'    {td_var}.name = "Displacement"',
+                    f'    {td_var}.texture_tex = {wire_var}',
+                    f'    {td_var}.texture_input_type = 2',
+                ])
+                wire_var = td_var
+            add_wire(mat_var, f"slot_{idx}_{channel}", channel, wire_var, candidates)
 
         if "ior" in map_vars:
             lines.append('    skippedList += "ior(no map slot), "')
@@ -2124,9 +2323,13 @@ def _palette_laydown_impl(
     values like "pbr_material" or "full_pbr" group texture sets by filename and
     create one fully wired PBR material per slot. For grouped mode, material_class
     may be OpenPBRMaterial, PhysicalMaterial, ai_standard_surface,
-    RS_Standard_Material, VRayMtl, or MaterialX; OpenPBR is the default.
-    include_displacement=False skips wiring height/displacement maps in grouped
-    PBR mode.
+    RS_Standard_Material, VRayMtl, MaterialX, Std_Surface_Mtl (octane_standard),
+    Open_PBR_Surf__Mtl (octane_pbr), or Universal_material (octane_universal);
+    OpenPBR is the default. Octane variants build with Image_MTX, Channel_picker
+    (for packed ORM), Multiply_MTX (diffuse x AO), and Invert_MTX (gloss to
+    roughness), and flip each material slot's *_input_type to 2 so the texture
+    actually drives the channel. include_displacement=False skips wiring
+    height/displacement maps in grouped PBR mode.
     """
     start_slot = max(1, min(24, int(start_slot)))
     max_slots = max(1, min(24 - start_slot + 1, int(max_slots)))
@@ -2152,7 +2355,9 @@ def _palette_laydown_impl(
     if slot_content == "pbr_material" and renderer is None:
         return (
             f"Unsupported material_class for grouped PBR palette: {material_class}. "
-            "Use OpenPBRMaterial, PhysicalMaterial, ai_standard_surface, RS_Standard_Material, VRayMtl, or MaterialX."
+            "Use OpenPBRMaterial, PhysicalMaterial, ai_standard_surface, RS_Standard_Material, "
+            "VRayMtl, MaterialX, Std_Surface_Mtl (octane_standard), Open_PBR_Surf__Mtl (octane_pbr), "
+            "or Universal_material (octane_universal)."
         )
 
     files = _scan_material_editor_palette_files(texture_folder, recursive)

@@ -20,7 +20,11 @@ def palette_laydown(
     slot_content: material = one OpenPBR preview per bitmap; bitmap = raw
     Bitmaptexture slots; pbr_material/full_pbr = grouped PBR material sets.
     material_class only applies to grouped PBR: OpenPBRMaterial, PhysicalMaterial,
-    ai_standard_surface, RS_Standard_Material, VRayMtl, or MaterialX.
+    ai_standard_surface, RS_Standard_Material, VRayMtl, MaterialX,
+    Std_Surface_Mtl (octane_standard), Open_PBR_Surf__Mtl (octane_pbr), or
+    Universal_material (octane_universal). Octane materials are wired with
+    Image_MTX bitmaps, Channel_picker for ORM splits, and Multiply_MTX/Invert_MTX
+    for AO and gloss compositing.
     include_displacement controls whether height/displacement maps are wired in
     grouped PBR mode.
     """
