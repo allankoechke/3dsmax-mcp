@@ -90,9 +90,26 @@ inline INode* FindNodeByName(const std::string& name) {
     return ip->GetINodeByName(wname.c_str());
 }
 
+// MAXScript-level wrap that captures runtime exceptions (parse errors still
+// surface via ExecuteMAXScriptScript returning FALSE). The wrapped script
+// returns either the user's value, or a string with this sentinel prefix.
+inline const char* MaxScriptErrorSentinel() { return "__MCP_MS_ERR__:"; }
+
+inline std::wstring WrapForErrorCapture(const std::wstring& wcmd) {
+    return std::wstring(
+        L"(\n"
+        L"  local __mcp_err = undefined\n"
+        L"  local __mcp_res = try (\n"
+    ) + wcmd + std::wstring(
+        L"\n  ) catch (__mcp_err = getCurrentException(); undefined)\n"
+        L"  if __mcp_err != undefined then (\"__MCP_MS_ERR__:\" + __mcp_err) else __mcp_res\n"
+        L")\n"
+    );
+}
+
 // ── MAXScript execution (for hybrid handlers) ───────────────────
 inline std::string RunMAXScript(const std::string& script) {
-    std::wstring wcmd = Utf8ToWide(script);
+    std::wstring wcmd = WrapForErrorCapture(Utf8ToWide(script));
     FPValue fpv;
     BOOL ok = FALSE;
 

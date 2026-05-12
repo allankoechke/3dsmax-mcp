@@ -5,11 +5,46 @@ from functools import lru_cache
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 from .max_client import MaxClient
+from .tool_response import make_structured_tool
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 mcp = FastMCP("3dsmax-mcp")
 client = MaxClient()
+
+
+def _install_structured_tool_results() -> None:
+    """Register MCP tools with stable JSON envelopes while keeping raw callables."""
+    raw_tool = mcp.tool
+
+    def structured_tool(*decorator_args, **decorator_kwargs):
+        if decorator_args and callable(decorator_args[0]) and len(decorator_args) == 1 and not decorator_kwargs:
+            fn = decorator_args[0]
+            wrapped = make_structured_tool(
+                fn,
+                before_call=client.clear_last_response,
+                transport_provider=client.get_last_transport,
+            )
+            raw_tool(wrapped)
+            return fn
+
+        raw_decorator = raw_tool(*decorator_args, **decorator_kwargs)
+
+        def decorate(fn):
+            wrapped = make_structured_tool(
+                fn,
+                before_call=client.clear_last_response,
+                transport_provider=client.get_last_transport,
+            )
+            raw_decorator(wrapped)
+            return fn
+
+        return decorate
+
+    mcp.tool = structured_tool  # type: ignore[method-assign]
+
+
+_install_structured_tool_results()
 
 CORE_TOOL_MODULES = (
     "execute",
@@ -123,6 +158,8 @@ def max_assistant() -> str:
         "Work in natural language with the user, but keep tool usage structured and explicit.\n"
         "DO NOT render unless the user asks.\n"
         "Use capture_viewport for fast viewport context.\n"
+        "MCP tool replies use a JSON envelope: ok, result, warnings, error, transport, elapsed_ms.\n"
+        "If ok is false, read error.message and transport before retrying or choosing a fallback.\n"
         f"Reference resource: {SKILL_RESOURCE_URI}\n"
         "Load the reference resource only when you need detailed project rules or MAXScript examples.\n"
     )

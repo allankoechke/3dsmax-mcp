@@ -2,6 +2,7 @@
 #include "mcp_bridge/bridge_gup.h"
 #include "mcp_bridge/native_handlers.h"
 #include "mcp_bridge/main_thread_executor.h"
+#include "mcp_bridge/handler_helpers.h"
 #include <nlohmann/json.hpp>
 #include <chrono>
 #include <unordered_set>
@@ -181,7 +182,8 @@ static std::string HandleMaxScript(
     }
 
     return gup->GetExecutor().ExecuteSync([&command]() -> std::string {
-        std::wstring wcmd = Utf8ToWide(command);
+        std::wstring wcmd = HandlerHelpers::WrapForErrorCapture(
+            HandlerHelpers::Utf8ToWide(command));
 
         FPValue fpv;
         BOOL ok = FALSE;
@@ -199,7 +201,9 @@ static std::string HandleMaxScript(
         }
 
         if (!ok) {
-            throw std::runtime_error("MAXScript execution failed");
+            // Parse-time errors fall through here; runtime errors are caught
+            // inside MAXScript and surface as a sentinel string in fpv below.
+            throw std::runtime_error("MAXScript execution failed (parse error)");
         }
 
         // Convert FPValue to string

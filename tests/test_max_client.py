@@ -19,6 +19,9 @@ class MaxClientTests(unittest.TestCase):
         self.assertIn("requestId", response)
         self.assertIn("meta", response)
         self.assertIn("clientRoundTripMs", response["meta"])
+        self.assertEqual(response["meta"]["transport"], "tcp")
+        self.assertEqual(response["meta"]["requestedTransport"], "tcp")
+        self.assertEqual(client.get_last_transport()["transport"], "tcp")
         sent = fake_socket.sendall.call_args.args[0]
         self.assertIn(b'"protocolVersion": 2', sent)
         self.assertIn(b'"requestId": "', sent)

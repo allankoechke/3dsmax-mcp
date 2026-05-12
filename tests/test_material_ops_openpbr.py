@@ -41,6 +41,44 @@ class OpenPBRMaterialTests(unittest.TestCase):
 
         build_openpbr.assert_called_once()
 
+    def test_create_material_from_textures_uses_shell_workflow_for_packed_orm(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "asset_basecolor.png").write_bytes(b"fake")
+            (root / "asset_orm.png").write_bytes(b"fake")
+            (root / "asset_normal.png").write_bytes(b"fake")
+
+            with patch(
+                "src.tools.material_ops.client.send_command",
+                return_value={"result": '{"status":"success"}'},
+            ) as send:
+                result = create_material_from_textures(tmp, material_name="asset")
+
+        self.assertEqual(result, '{"status":"success"}')
+        send.assert_called_once()
+        maxscript = send.call_args.args[0]
+        self.assertIn("Shell_Material()", maxscript)
+        self.assertIn('OSL\\\\UberBitmap2.osl', maxscript)
+        self.assertIn("MultiOutputChannelTexmapToTexmap", maxscript)
+        self.assertIn("outputChannelIndex = 2", maxscript)
+        self.assertIn("outputChannelIndex = 3", maxscript)
+        self.assertIn("outputChannelIndex = 4", maxscript)
+        self.assertIn("ai_multiply", maxscript)
+        self.assertIn('shell.originalMaterial = arnoldMat', maxscript)
+        self.assertIn('shell.bakedMaterial = gltfMat', maxscript)
+        self.assertIn('asset_gltf', maxscript)
+
+    def test_create_material_from_textures_shell_requires_orm(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "asset_basecolor.png").write_bytes(b"fake")
+
+            with patch("src.tools.material_ops.client.send_command") as send:
+                result = create_material_from_textures(tmp, material_class="Shell_Material")
+
+        self.assertIn("requires at least diffuse/basecolor and packed ORM", result)
+        send.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

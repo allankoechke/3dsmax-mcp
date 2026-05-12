@@ -23,6 +23,13 @@ from .material_detection import (
     _renderer_from_material_class,
     _scan_texture_folder,
 )
+from .material_shell import (
+    UBER_OUT_B as _UBER_OUT_B,
+    UBER_OUT_COL as _UBER_OUT_COL,
+    UBER_OUT_G as _UBER_OUT_G,
+    UBER_OUT_R as _UBER_OUT_R,
+    build_shell_maxscript,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -1437,7 +1444,14 @@ def create_material_from_textures(
 
     # -- Step 3: Determine renderer / material class --
     renderer = ""
-    if material_class:
+    class_lower = material_class.lower().strip() if material_class else ""
+    if not material_class:
+        # Packed ORM sets get the richer dual-pipeline material by default:
+        # Arnold render slot from UberBitmap/ORM split + export slot in a Shell.
+        renderer = "shell" if "diffuse" in matched and "orm" in matched else "openpbr"
+    elif class_lower in {"shell", "shell_material", "shell_mtl", "shell_material_arnold", "shell_arnold_orm"}:
+        renderer = "shell"
+    elif material_class:
         class_lower = material_class.lower()
         if "openpbr" in class_lower or "open_pbr" in class_lower:
             renderer = "openpbr"
@@ -1449,18 +1463,27 @@ def create_material_from_textures(
             renderer = "redshift"
         else:
             return (f"Unsupported material_class: {material_class}. "
-                    "Use OpenPBRMaterial, ai_standard_surface, PhysicalMaterial, or RS_Standard_Material.")
-    else:
-        # OpenPBR is the preferred neutral PBR material. The generated script
-        # falls back to PhysicalMaterial if the local Max build has no OpenPBR class.
-        renderer = "openpbr"
+                    "Use OpenPBRMaterial, Shell_Material, ai_standard_surface, PhysicalMaterial, or RS_Standard_Material.")
 
     # -- Step 4: Derive material name --
     if not material_name:
         material_name = Path(texture_folder).name
 
     # -- Step 5: Build MAXScript --
-    if renderer == "openpbr":
+    if renderer == "shell":
+        if "diffuse" not in matched or "orm" not in matched:
+            return "Shell_Material workflow requires at least diffuse/basecolor and packed ORM textures."
+        maxscript = build_shell_maxscript(
+            shell_name=material_name,
+            render_name=f"{material_name}_arnold",
+            base_color_path=matched["diffuse"],
+            orm_path=matched["orm"],
+            normal_path=matched.get("normal"),
+            gltf_material_name=f"{material_name}_gltf",
+            assign_to=assign_to,
+            create_export_material=True,
+        )
+    elif renderer == "openpbr":
         maxscript = _build_openpbr_maxscript(matched, material_name, assign_to)
     elif renderer == "arnold":
         maxscript = _build_arnold_maxscript(matched, material_name, assign_to)
@@ -2154,151 +2177,6 @@ def _palette_laydown_impl(
     return response.get("result", "")
 
 
-# ---------------------------------------------------------------------------
-# UberBitmap + Shell Material helpers
-# ---------------------------------------------------------------------------
-
-_UBER_BITMAP_OSL = None  # Resolved dynamically via MAXScript: (getDir #maxRoot) + "OSL\\UberBitmap2.osl"
-# MultiOutputChannelTexmapToTexmap output indices for UberBitmap2:
-#   1=Col(RGB), 2=R, 3=G, 4=B, 5=A, 6=Luminance, 7=Average
-_UBER_OUT_COL = 1
-_UBER_OUT_R = 2
-_UBER_OUT_G = 3
-_UBER_OUT_B = 4
-
-
-def _ms_uber_bitmap(var: str, name: str, filepath: str) -> list[str]:
-    """Generate MAXScript lines to create a UberBitmap OSLMap."""
-    fp = filepath.replace("\\", "/")
-    return [
-        f'{var} = OSLMap()',
-        f'{var}.name = "{name}"',
-        f'{var}.OSLPath = oslPath',
-        f'{var}.OSLAutoUpdate = true',
-        f'{var}.filename = "{fp}"',
-    ]
-
-
-def _ms_channel_selector(var: str, source_var: str, output_index: int) -> list[str]:
-    """Generate MAXScript lines for a MultiOutputChannelTexmapToTexmap."""
-    return [
-        f'{var} = MultiOutputChannelTexmapToTexmap()',
-        f'{var}.sourceMap = {source_var}',
-        f'{var}.outputChannelIndex = {output_index}',
-    ]
-
-
-def _build_shell_maxscript(
-    shell_name: str,
-    render_name: str,
-    base_color_path: str,
-    orm_path: str,
-    normal_path: str | None,
-    gltf_material_name: str | None,
-    assign_to: list[str] | None,
-) -> str:
-    """Build MAXScript for Shell Material with UberBitmap RGB split Arnold setup."""
-    lines: list[str] = []
-    safe_shell = safe_string(shell_name)
-    safe_render = safe_string(render_name)
-
-    # Resolve UberBitmap OSL path dynamically from Max install
-    lines.append('oslPath = (getDir #maxRoot) + "OSL\\\\UberBitmap2.osl"')
-
-    # Find existing glTF material from scene
-    if gltf_material_name:
-        safe_gltf = safe_string(gltf_material_name)
-        lines.append(f'gltfMat = undefined')
-        lines.append(f'for obj in objects where obj.material != undefined do (')
-        lines.append(f'    if obj.material.name == "{safe_gltf}" do (gltfMat = obj.material; exit)')
-        lines.append(f')')
-        # Also check inside Shell Materials for the glTF mat
-        lines.append(f'if gltfMat == undefined do (')
-        lines.append(f'    for obj in objects where obj.material != undefined do (')
-        lines.append(f'        if (classOf obj.material) as string == "Shell_Material" and obj.material.bakedMaterial != undefined do (')
-        lines.append(f'            if obj.material.bakedMaterial.name == "{safe_gltf}" do (gltfMat = obj.material.bakedMaterial; exit)')
-        lines.append(f'        )')
-        lines.append(f'    )')
-        lines.append(f')')
-
-    # Create UberBitmap for BaseColor
-    lines.extend(_ms_uber_bitmap("uberBC", f"{safe_render}_diffuse", base_color_path))
-
-    # Create UberBitmap for ORM
-    lines.extend(_ms_uber_bitmap("uberORM", f"{safe_render}_orm", orm_path))
-
-    # Channel selectors from BaseColor
-    lines.extend(_ms_channel_selector("bcCol", "uberBC", _UBER_OUT_COL))
-
-    # Channel selectors from ORM: R=AO, G=Roughness, B=Metalness
-    lines.extend(_ms_channel_selector("ormR", "uberORM", _UBER_OUT_R))
-    lines.extend(_ms_channel_selector("ormG", "uberORM", _UBER_OUT_G))
-    lines.extend(_ms_channel_selector("ormB", "uberORM", _UBER_OUT_B))
-
-    # ai_multiply: diffuse × AO
-    lines.append(f'mult = ai_multiply()')
-    lines.append(f'mult.name = "{safe_render}_multiply"')
-    lines.append(f'mult.input1_shader = bcCol')
-    lines.append(f'mult.input2_shader = ormR')
-
-    # Arnold Standard Surface
-    lines.append(f'arnoldMat = ai_standard_surface()')
-    lines.append(f'arnoldMat.name = "{safe_render}"')
-    lines.append(f'arnoldMat.base_color_shader = mult')
-    lines.append(f'arnoldMat.specular_roughness_shader = ormG')
-    lines.append(f'arnoldMat.metalness_shader = ormB')
-
-    # Normal map (optional)
-    if normal_path:
-        lines.extend(_ms_uber_bitmap("uberNrm", f"{safe_render}_normal", normal_path))
-        lines.extend(_ms_channel_selector("nrmCol", "uberNrm", _UBER_OUT_COL))
-        lines.append(f'nrmMap = ai_normal_map()')
-        lines.append(f'nrmMap.name = "{safe_render}_nrm"')
-        lines.append(f'nrmMap.input_shader = nrmCol')
-        lines.append(f'bmpNode = ai_bump2d()')
-        lines.append(f'bmpNode.name = "{safe_render}_bump"')
-        lines.append(f'bmpNode.normal_shader = nrmMap')
-        lines.append(f'arnoldMat.normal_shader = bmpNode')
-
-    # Shell Material
-    lines.append(f'shell = Shell_Material()')
-    lines.append(f'shell.name = "{safe_shell}"')
-    lines.append(f'shell.originalMaterial = arnoldMat')
-    if gltf_material_name:
-        lines.append(f'if gltfMat != undefined do shell.bakedMaterial = gltfMat')
-    lines.append(f'shell.renderMtlIndex = 0')
-    lines.append(f'shell.viewportMtlIndex = 1')
-
-    # Assign to objects
-    lines.append(f'assignCount = 0')
-    if assign_to:
-        names_arr = "#(" + ", ".join(f'"{safe_string(n)}"' for n in assign_to) + ")"
-        lines.append(f'nameList = {names_arr}')
-        lines.append(f'for n in nameList do (obj = getNodeByName n; if obj != undefined then (obj.material = shell; assignCount += 1))')
-    elif gltf_material_name:
-        # Auto-assign to all objects using the glTF material
-        lines.append(f'if gltfMat != undefined do (')
-        lines.append(f'    for obj in objects where obj.material != undefined do (')
-        lines.append(f'        if obj.material == gltfMat or obj.material.name == "{safe_gltf}" do (')
-        lines.append(f'            obj.material = shell; assignCount += 1')
-        lines.append(f'        )')
-        lines.append(f'    )')
-        lines.append(f')')
-
-    # Build result JSON
-    lines.append(f'resultJson = "{{"')
-    lines.append(f'resultJson += "\\"shell_name\\":\\"" + shell.name + "\\","')
-    lines.append(f'resultJson += "\\"render_material\\":\\"" + arnoldMat.name + "\\","')
-    if gltf_material_name:
-        lines.append(f'resultJson += "\\"gltf_material\\":\\"" + (if gltfMat != undefined then gltfMat.name else "not_found") + "\\","')
-    lines.append(f'resultJson += "\\"assigned_count\\":" + (assignCount as string) + ","')
-    lines.append(f'resultJson += "\\"status\\":\\"success\\""')
-    lines.append(f'resultJson += "}}"')
-    lines.append(f'resultJson')
-
-    return "(\n    " + "\n    ".join(lines) + "\n)"
-
-
 @mcp.tool()
 def create_shell_material(
     shell_name: str,
@@ -2310,7 +2188,7 @@ def create_shell_material(
     assign_to: StrList | None = None,
 ) -> str:
     """Create a Shell Material with UberBitmap-based Arnold render slot and glTF export slot."""
-    if client.native_available:
+    if client.native_available and gltf_material_name:
         try:
             payload = json.dumps({
                 "name": shell_name,
@@ -2326,7 +2204,7 @@ def create_shell_material(
         except RuntimeError:
             pass
 
-    maxscript = _build_shell_maxscript(
+    maxscript = build_shell_maxscript(
         shell_name=shell_name,
         render_name=render_material_name,
         base_color_path=base_color_path,
@@ -2334,6 +2212,7 @@ def create_shell_material(
         normal_path=normal_path or None,
         gltf_material_name=gltf_material_name or None,
         assign_to=assign_to,
+        create_export_material=not bool(gltf_material_name),
     )
 
     maxscript = f"""(

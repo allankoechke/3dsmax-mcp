@@ -66,14 +66,12 @@ Debugging:
 - Shell + ORM: `create_shell_material`, `replace_material`, `batch_replace_materials`
 - OSL: `write_osl_shader`
 
-### Known Issues — Material Pipeline
-- `create_material_from_textures` has no ORM packed texture support (OcclusionRoughnessMetallic)
-- No UberBitmap (OSLMap) awareness — uses Bitmaptexture/ai_image instead of OSL UberBitmap2.osl
-- No MultiOutputChannelTexmapToTexmap knowledge — cannot split R/G/B channels from a single map
-- No Shell Material support — cannot wrap glTF + Arnold in dual-pipeline structure
-- Arnold wiring uses ai_image instead of UberBitmap — misses channel splitting for packed maps
-- AO compositing uses ai_layer_rgba instead of ai_multiply — inconsistent with standard Arnold workflows
-- No concept of render vs export material slots (Shell originalMaterial / bakedMaterial)
+### Material Pipeline Notes
+- `create_material_from_textures` defaults simple sets to OpenPBR-first material creation.
+- When a diffuse/basecolor map and packed ORM map are detected, `create_material_from_textures` uses the Shell/UberBitmap workflow: Arnold render material in `originalMaterial`, export material in `bakedMaterial`, `renderMtlIndex = 0`, `viewportMtlIndex = 1`.
+- Packed ORM textures are split with `MultiOutputChannelTexmapToTexmap`: R/AO, G/roughness, B/metalness.
+- Arnold base color is multiplied by AO with `ai_multiply`, not `ai_layer_rgba`.
+- Use `create_shell_material` when the texture paths are already known or when wrapping an existing glTF/export material by name.
 
 ### Viewport
 - Fast: `capture_viewport`

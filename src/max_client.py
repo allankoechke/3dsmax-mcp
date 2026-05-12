@@ -85,6 +85,30 @@ class MaxClient:
         self.pipe_name = pipe_name
         self._pipe_handle: Optional[int] = None
         self._pipe_lock = threading.Lock()
+        self._local = threading.local()
+
+    def clear_last_response(self) -> None:
+        """Clear thread-local metadata from the previous command."""
+        self._local.last_response = None
+        self._local.last_error = None
+
+    def get_last_transport(self) -> dict[str, Any] | None:
+        """Return compact transport metadata from the last command on this thread."""
+        response = getattr(self._local, "last_response", None)
+        if isinstance(response, dict):
+            meta = response.get("meta") if isinstance(response.get("meta"), dict) else {}
+            return {
+                "transport": meta.get("transport"),
+                "requested_transport": meta.get("requestedTransport"),
+                "request_id": response.get("requestId"),
+                "protocol_version": meta.get("protocolVersion"),
+                "client_round_trip_ms": meta.get("clientRoundTripMs"),
+                "fallback_error": meta.get("fallbackError"),
+            }
+        error = getattr(self._local, "last_error", None)
+        if isinstance(error, dict):
+            return error
+        return None
 
     @property
     def native_available(self) -> bool:
@@ -189,6 +213,9 @@ class MaxClient:
         effective_timeout = timeout or self.timeout
         request_id = uuid4().hex
         started_at = time.perf_counter()
+        transport_used = self.transport
+        fallback_error: str | None = None
+        self.clear_last_response()
 
         request = json.dumps({
             "command": command,
@@ -198,16 +225,39 @@ class MaxClient:
         }, ensure_ascii=True)
 
         if self.transport == "pipe":
+            transport_used = "namedpipe"
             response_data = self._send_via_pipe(request, effective_timeout)
         elif self.transport == "tcp":
+            transport_used = "tcp"
             response_data = self._send_via_tcp(request, effective_timeout)
         else:
             try:
+                transport_used = "namedpipe"
                 response_data = self._send_via_pipe(request, effective_timeout)
-            except (ConnectionError, TimeoutError):
+            except (ConnectionError, TimeoutError) as exc:
+                fallback_error = str(exc)
+                transport_used = "tcp"
                 response_data = self._send_via_tcp(request, effective_timeout)
 
-        return self._parse_response(response_data, request_id, started_at)
+        try:
+            response = self._parse_response(response_data, request_id, started_at)
+        except Exception as exc:
+            self._local.last_error = {
+                "transport": transport_used,
+                "requested_transport": self.transport,
+                "request_id": request_id,
+                "error": str(exc),
+                "fallback_error": fallback_error,
+            }
+            raise
+
+        meta = response.setdefault("meta", {})
+        meta.setdefault("transport", transport_used)
+        meta.setdefault("requestedTransport", self.transport)
+        if fallback_error:
+            meta.setdefault("fallbackError", fallback_error)
+        self._local.last_response = response
+        return response
 
     # ── Named Pipe transport ─────────────────────────────────────
     def _send_via_pipe(self, request: str, timeout: float) -> bytes:
