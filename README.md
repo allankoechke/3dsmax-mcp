@@ -88,12 +88,18 @@ Both the native bridge and the MAXScript listener read from a shared config:
 ```ini
 [mcp]
 safe_mode = true
+tcp_idle_poll_interval_ms = 1500
 ```
 
 When enabled (default), these commands are blocked:
 `DOSCommand`, `ShellLaunch`, `deleteFile`, `python.Execute`, `createFile`
 
 To disable, set `safe_mode = false` and restart 3ds Max.
+
+The TCP fallback is opt-in via the `MCP Start` macroscript. If the native bridge
+is unavailable, `tcp_idle_poll_interval_ms` controls how often the fallback
+checks for new local TCP connections while idle; the default is intentionally
+sparse to avoid viewport stutter.
 
 ### Scope — read this
 

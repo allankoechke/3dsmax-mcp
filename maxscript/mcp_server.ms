@@ -22,7 +22,7 @@ struct MCPServerStruct
 	port = 8765,
 	safeMode = true,
 	protocolVersion = 2,
-	idlePollIntervalMs = 250,
+	idlePollIntervalMs = 1500,
 	activePollIntervalMs = 50,
 	activePollTicksRemaining = 0,
 	activePollTicksAfterRequest = 10,
@@ -40,16 +40,46 @@ struct MCPServerStruct
 		)
 	),
 
-	-- Load safe_mode from shared config: %LOCALAPPDATA%\3dsmax-mcp\mcp_config.ini
-	fn loadSafeMode =
+	fn configPath =
 	(
 		local iniPath = (dotNetClass "System.Environment").GetFolderPath (dotNetClass "System.Environment+SpecialFolder").LocalApplicationData
 		iniPath += "\\3dsmax-mcp\\mcp_config.ini"
-		local val = "true"
-		try (val = getINISetting iniPath "mcp" "safe_mode") catch ()
+		iniPath
+	),
+
+	fn loadConfigString key defaultValue =
+	(
+		local val = defaultValue
+		try (val = getINISetting (configPath()) "mcp" key) catch ()
+		if val == "" do val = defaultValue
+		val
+	),
+
+	fn loadConfigInt key defaultValue minValue maxValue =
+	(
+		local raw = loadConfigString key (defaultValue as string)
+		local parsed = defaultValue
+		try (parsed = raw as integer) catch (parsed = defaultValue)
+		if parsed < minValue do parsed = minValue
+		if parsed > maxValue do parsed = maxValue
+		parsed
+	),
+
+	-- Load shared config from %LOCALAPPDATA%\3dsmax-mcp\mcp_config.ini
+	fn loadSafeMode =
+	(
+		local val = loadConfigString "safe_mode" "true"
 		if val == "" do val = "true"
 		val = toLower (trimLeft (trimRight val))
 		not (val == "false" or val == "0" or val == "off")
+	),
+
+	fn loadConfig =
+	(
+		safeMode = loadSafeMode()
+		idlePollIntervalMs = loadConfigInt "tcp_idle_poll_interval_ms" idlePollIntervalMs 250 60000
+		activePollIntervalMs = loadConfigInt "tcp_active_poll_interval_ms" activePollIntervalMs 10 5000
+		activePollTicksAfterRequest = loadConfigInt "tcp_active_poll_ticks_after_request" activePollTicksAfterRequest 0 1000
 	),
 
 	-- Parse a hex string (e.g. "00e9") to integer for \uXXXX decoding
@@ -415,16 +445,16 @@ struct MCPServerStruct
 				listener = dotNetObject "System.Net.Sockets.TcpListener" ipAddress port
 				listener.Start()
 
-				-- Create timer to poll for connections
+				-- Create a sparse idle timer for the opt-in TCP fallback.
 				timer = dotNetObject "System.Windows.Forms.Timer"
-				timer.Interval = idlePollIntervalMs  -- idle TCP fallback should stay quiet
+				timer.Interval = idlePollIntervalMs
 				dotNet.setLifetimeControl timer #dotnet
 
 				dotNet.addEventHandler timer "Tick" onTick
 				timer.Start()
 				isRunning = true
 
-				format "MCP Server started (TCP on port %)\n" port
+				format "MCP Server started (TCP on port %, idle poll % ms, active poll % ms)\n" port idlePollIntervalMs activePollIntervalMs
 			)
 			catch
 			(
@@ -464,19 +494,18 @@ struct MCPServerStruct
 
 -- Define helpers; do NOT auto-start.
 --
--- The TCP fallback's listener runs on a WinForms timer that ticks Max's
--- main thread. With the native bridge present (the normal case) it just
--- adds noise; without the bridge it locks Max if anything inside the tick
--- handler runs long. v0.6.2: opt-in only via the `MCP Start` macroscript
--- (Customize UI -> MCP -> MCP Start). `MCP Stop` shuts it back down.
+-- The TCP fallback uses a sparse WinForms timer on Max's main thread. It is
+-- opt-in only via the `MCP Start` macroscript (Customize UI -> MCP -> MCP
+-- Start). `MCP Stop` shuts it back down. Keep native bridge as the default
+-- path for normal interactive use.
 if MCP_Server != undefined and MCP_Server.isRunning then
 (
 	MCP_Server.stop()
 )
 MCP_Server = MCPServerStruct()
-MCP_Server.safeMode = MCP_Server.loadSafeMode()
-format "MCP: helpers loaded (safe_mode = %, native bridge = %)\n" \
-	MCP_Server.safeMode (MCP_Server.nativeBridgeAvailable())
+MCP_Server.loadConfig()
+format "MCP: helpers loaded (safe_mode = %, native bridge = %, tcp idle poll = % ms)\n" \
+	MCP_Server.safeMode (MCP_Server.nativeBridgeAvailable()) MCP_Server.idlePollIntervalMs
 
 macroScript MCP_Start category:"MCP" tooltip:"Start MCP TCP fallback (port 8765)" buttonText:"MCP Start"
 (
