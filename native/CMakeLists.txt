@@ -27,9 +27,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(MAX_VERSION "2026" CACHE STRING "Target 3ds Max version (2024, 2025, 2026, 2027)")
 message(STATUS "Building for 3ds Max ${MAX_VERSION}")
 
+if(MAX_VERSION EQUAL 2024)
+    message(STATUS "Max 2024 SDK: use the MSVC v142 toolset for ABI-compatible native builds")
+endif()
+
 # Compiler requirements per version:
-#   2024/2025/2026 → Visual Studio 2022 (v143), C++17
-#   2027+          → Visual Studio 2026 (v144), C++20
+#   2024      -> Visual Studio 2019 toolset (v142), C++17
+#   2025/2026 -> Visual Studio 2022 toolset (v143), C++17
+#   2027+     -> Visual Studio 2026 toolset (v144), C++20
 if(MAX_VERSION GREATER_EQUAL 2027)
     message(STATUS "Max 2027+ SDK — C++20 enabled (VS 2022 works, VS 2026 recommended by Autodesk)")
 endif()

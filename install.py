@@ -19,17 +19,28 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 GUP_SRC_DEFAULT = ROOT / "native" / "bin" / "mcp_bridge.gup"
 GUP_SRCS = {
+    2024: ROOT / "native" / "bin" / "mcp_bridge_2024.gup",
+    2025: ROOT / "native" / "bin" / "mcp_bridge_2025.gup",
+    2026: GUP_SRC_DEFAULT,
     2027: ROOT / "native" / "bin" / "mcp_bridge_2027.gup",
 }
 
 
-def gup_src_for(max_dir: Path) -> Path:
+def max_year_for(max_dir: Path) -> int | None:
     try:
-        year = int(max_dir.name.split()[-1])
-        src = GUP_SRCS.get(year, GUP_SRC_DEFAULT)
-        return src if src.exists() else GUP_SRC_DEFAULT
+        return int(max_dir.name.split()[-1])
     except (ValueError, IndexError):
-        return GUP_SRC_DEFAULT
+        return None
+
+
+def gup_src_for(max_dir: Path) -> Path | None:
+    year = max_year_for(max_dir)
+    if year is None:
+        return None
+    src = GUP_SRCS.get(year)
+    if src and src.exists():
+        return src
+    return None
 MS_SERVER = ROOT / "maxscript" / "mcp_server.ms"
 MS_AUTOSTART = ROOT / "maxscript" / "startup" / "mcp_autostart.ms"
 CONFIG_SRC = ROOT / "mcp_config.ini"
@@ -136,10 +147,17 @@ def deploy_native_bridge(max_dir: Path) -> bool:
     dst = plugins_dir / "mcp_bridge.gup"
     gup_src = gup_src_for(max_dir)
     print(f"\n[2/5] Native bridge -> {dst}")
-    print(f"  Using: {gup_src.name}")
-    if not gup_src.exists():
-        print(f"  SKIP: pre-built binary not found at {gup_src}")
+    year = max_year_for(max_dir)
+    if not gup_src:
+        expected = GUP_SRCS.get(year) if year else None
+        if expected:
+            print(f"  SKIP: no native bridge built for 3ds Max {year}")
+            print(f"  Expected: {expected}")
+        else:
+            print(f"  SKIP: unsupported or unknown 3ds Max version")
+        print("  MAXScript fallback will still be installed.")
         return False
+    print(f"  Using: {gup_src.name}")
     if copy_elevated(gup_src, dst):
         print("  OK")
         return True
@@ -295,8 +313,9 @@ def main():
 
     # Deploy
     deploy_config(skip_skill=args.skip_skill)
+    native_ok = False
     if max_dir:
-        deploy_native_bridge(max_dir)
+        native_ok = deploy_native_bridge(max_dir)
         deploy_maxscript(max_dir)
     else:
         print("\n[2/5] SKIP: no Max installation")
@@ -310,7 +329,10 @@ def main():
     print("  done!")
     print("=" * 60)
     if max_dir:
-       print(f"\n  restart 3dsmax to load the native bridge.")
+       if native_ok:
+           print(f"\n  restart 3dsmax to load the native bridge.")
+       else:
+           print(f"\n  native bridge was not installed; 3dsmax will use MAXScript fallback.")
     print(f"  the MCP server starts automatically when your agent connects.")
     print(f"\n ")
     print(f"\n  and thank you for installing 3dsmax-mcp! I hope you enjoy it! 3dsmax forever!!")
