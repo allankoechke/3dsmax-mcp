@@ -30,7 +30,7 @@ The native bridge runs inside 3ds Max as a Global Utility Plugin. It reads the s
 
 - [Python 3.10+](https://www.python.org/)
 - [uv](https://docs.astral.sh/uv/)
-- Autodesk 3ds Max 2026 (2024/2025 supported via MAXScript fallback)
+- Autodesk 3ds Max 2023-2027
 
 ## Installation
 
@@ -145,29 +145,23 @@ Run an AI chat entirely inside 3ds Max — no external MCP client required. The 
 
 Only needed if you want to modify the C++ plugin.
 
-**Max 2024** - install the 3ds Max 2024 SDK first, plus CMake 3.20+ and the
-MSVC v142 toolset. The script builds a version-specific bridge and stages it as
-`native/bin/mcp_bridge_2024.gup`, which `install.py` will deploy to 3ds Max
-2024.
+Install the matching 3ds Max SDKs first. The batch file builds exact-version
+GUPs into `native/bin/`, and `install.py` deploys only the binary matching the
+detected Max version.
 
 ```powershell
 cd native
-powershell -ExecutionPolicy Bypass -File .\build_2024.ps1
+.\build.bat all
 ```
 
-To build with a non-default SDK path:
+To build one version:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\build_2024.ps1 `
-  -MaxSdkPath "D:\Autodesk\3ds Max 2024 SDK\maxsdk"
+.\build.bat 2025
 ```
 
-**Max 2027+** — Visual Studio 2022 (v143), C++20, CMake 3.20+
+To build and deploy into installed Max plugin folders:
 
 ```powershell
-cd native
-cmake -B build -G "Visual Studio 17 2022" -A x64 -DMAX_VERSION=2027
-cmake --build build --config Release
+.\build.bat all deploy
 ```
-
-Then copy `native/build/Release/mcp_bridge.gup` to `C:\Program Files\Autodesk\3ds Max <version>\plugins\`.

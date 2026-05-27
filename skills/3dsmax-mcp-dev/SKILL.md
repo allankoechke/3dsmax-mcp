@@ -132,6 +132,10 @@ If you catch yourself writing MAXScript that a tool already handles, stop and us
 - `get_wired_params` returns paths with `[#name]` format. Pass directly to `unwire_params` — both `[name]` and `[#name]` formats are accepted.
 - `add_controller_target` only works on script, expression, and constraint controllers. Noise/Bezier/other controllers will return a clear error message. Use `assign_controller` with `controller_type:"float_script"` if you need node references.
 
+## Native Build Pitfalls
+
+- In Windows batch native build scripts, strip the trailing slash from `%~dp0` and quote CMake `-D` paths as one argument (for example `"-DMAXSDK_PATH=..."`) or spaces in repo/SDK paths can make CMake parse a bogus source directory.
+
 ## 8. MAXScript Pitfalls
 
 - **No parens with keyword args**: `Box width:10` not `Box() width:10`

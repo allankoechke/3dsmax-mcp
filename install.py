@@ -17,11 +17,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-GUP_SRC_DEFAULT = ROOT / "native" / "bin" / "mcp_bridge.gup"
 GUP_SRCS = {
+    2023: ROOT / "native" / "bin" / "mcp_bridge_2023.gup",
     2024: ROOT / "native" / "bin" / "mcp_bridge_2024.gup",
     2025: ROOT / "native" / "bin" / "mcp_bridge_2025.gup",
-    2026: GUP_SRC_DEFAULT,
+    2026: ROOT / "native" / "bin" / "mcp_bridge_2026.gup",
     2027: ROOT / "native" / "bin" / "mcp_bridge_2027.gup",
 }
 
@@ -41,6 +41,8 @@ def gup_src_for(max_dir: Path) -> Path | None:
     if src and src.exists():
         return src
     return None
+
+
 MS_SERVER = ROOT / "maxscript" / "mcp_server.ms"
 MS_AUTOSTART = ROOT / "maxscript" / "startup" / "mcp_autostart.ms"
 CONFIG_SRC = ROOT / "mcp_config.ini"
@@ -60,6 +62,7 @@ MAX_DIRS = [
     Path(r"C:\Program Files\Autodesk\3ds Max 2026"),
     Path(r"C:\Program Files\Autodesk\3ds Max 2025"),
     Path(r"C:\Program Files\Autodesk\3ds Max 2024"),
+    Path(r"C:\Program Files\Autodesk\3ds Max 2023"),
 ]
 
 
