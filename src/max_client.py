@@ -1,9 +1,11 @@
 import ctypes
 import ctypes.wintypes as wintypes
 import json
+import os
 import socket
 import threading
 import time
+from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
 
@@ -11,6 +13,7 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_TIMEOUT = 120.0
 DEFAULT_PIPE_NAME = r"\\.\pipe\3dsmax-mcp"
+MCP_PIPE_ENV = "MCP_MAX_PIPE"
 
 # Win32 constants for named pipe
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -67,6 +70,10 @@ _kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 _INVALID_HANDLE = wintypes.HANDLE(-1).value
 
 
+class AmbiguousMaxInstanceError(ConnectionError):
+    """Raised when multiple live Max native bridges exist and none is claimed."""
+
+
 class MaxClient:
     """Client that sends commands to 3ds Max via named pipe or TCP."""
 
@@ -84,6 +91,7 @@ class MaxClient:
         self.transport = transport
         self.pipe_name = pipe_name
         self._pipe_handle: Optional[int] = None
+        self._selected_pipe_name: Optional[str] = None
         self._pipe_lock = threading.Lock()
         self._local = threading.local()
 
@@ -117,12 +125,76 @@ class MaxClient:
             return True
         if self.transport == "tcp":
             return False
-        return self._probe_pipe_available()
+        try:
+            return self._probe_pipe_available(self._resolve_pipe_name())
+        except (ConnectionError, TimeoutError):
+            return False
 
-    def _probe_pipe_available(self) -> bool:
+    def _config_dir(self) -> Path:
+        root = os.environ.get("LOCALAPPDATA")
+        if root:
+            return Path(root) / "3dsmax-mcp"
+        return Path.home() / "AppData" / "Local" / "3dsmax-mcp"
+
+    def _load_instance(self, path: Path) -> dict[str, Any] | None:
+        try:
+            data = json.loads(path.read_text("utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(data, dict) or not isinstance(data.get("pipe"), str):
+            return None
+        return data
+
+    def _active_instance(self) -> dict[str, Any] | None:
+        return self._load_instance(self._config_dir() / "active_instance.json")
+
+    def _live_instances(self) -> list[dict[str, Any]]:
+        instances_dir = self._config_dir() / "instances"
+        try:
+            paths = sorted(instances_dir.glob("*.json"))
+        except OSError:
+            return []
+
+        live: list[dict[str, Any]] = []
+        for path in paths:
+            data = self._load_instance(path)
+            if data and self._probe_pipe_available(data["pipe"]):
+                live.append(data)
+        return live
+
+    def _resolve_pipe_name(self) -> str:
+        env_pipe = os.environ.get(MCP_PIPE_ENV)
+        if env_pipe:
+            return env_pipe
+
+        if self.pipe_name != DEFAULT_PIPE_NAME:
+            return self.pipe_name
+
+        active = self._active_instance()
+        if active and self._probe_pipe_available(active["pipe"]):
+            return active["pipe"]
+
+        live = self._live_instances()
+        if len(live) == 1:
+            return live[0]["pipe"]
+        if len(live) > 1:
+            labels = ", ".join(
+                f"{item.get('instance_id', 'unknown')} pid={item.get('pid', '?')}"
+                for item in live
+            )
+            raise AmbiguousMaxInstanceError(
+                "Multiple 3ds Max MCP instances are running. "
+                "In the target 3ds Max window, run MCP > MCP Claim This Max. "
+                f"Available instances: {labels}"
+            )
+
+        return DEFAULT_PIPE_NAME
+
+    def _probe_pipe_available(self, pipe_name: str | None = None) -> bool:
         """Best-effort probe that treats a busy pipe as available."""
+        pipe_name = pipe_name or self.pipe_name
         handle = _kernel32.CreateFileW(
-            self.pipe_name,
+            pipe_name,
             _GENERIC_READ | _GENERIC_WRITE,
             0,
             None,
@@ -140,7 +212,7 @@ class MaxClient:
         if err in (_ERROR_FILE_NOT_FOUND, _ERROR_PATH_NOT_FOUND):
             return False
 
-        if _kernel32.WaitNamedPipeW(self.pipe_name, 0):
+        if _kernel32.WaitNamedPipeW(pipe_name, 0):
             return True
         wait_err = ctypes.get_last_error()
         if wait_err in (_ERROR_SEM_TIMEOUT, _ERROR_PIPE_BUSY, _ERROR_ACCESS_DENIED):
@@ -153,14 +225,14 @@ class MaxClient:
             _kernel32.CloseHandle(handle)
         self._pipe_handle = None
 
-    def _ensure_pipe_handle(self, deadline: float) -> int:
+    def _ensure_pipe_handle(self, deadline: float, pipe_name: str) -> int:
         handle = self._pipe_handle
         if handle not in (None, 0, _INVALID_HANDLE):
             return handle
 
         while True:
             handle = _kernel32.CreateFileW(
-                self.pipe_name,
+                pipe_name,
                 _GENERIC_READ | _GENERIC_WRITE,
                 0,
                 None,
@@ -175,7 +247,7 @@ class MaxClient:
             err = ctypes.get_last_error()
             if err in (_ERROR_FILE_NOT_FOUND, _ERROR_PATH_NOT_FOUND):
                 raise ConnectionError(
-                    f"Named pipe {self.pipe_name} not found. "
+                    f"Named pipe {pipe_name} not found. "
                     "Is the MCP Bridge plugin loaded in 3ds Max?"
                 )
             if err != _ERROR_PIPE_BUSY:
@@ -184,17 +256,17 @@ class MaxClient:
             remaining_ms = int((deadline - time.perf_counter()) * 1000)
             if remaining_ms <= 0:
                 raise TimeoutError(
-                    f"Timed out waiting for named pipe {self.pipe_name} after "
+                    f"Timed out waiting for named pipe {pipe_name} after "
                     f"{self.timeout}s."
                 )
 
             wait_ms = min(remaining_ms, 250)
-            if _kernel32.WaitNamedPipeW(self.pipe_name, wait_ms):
+            if _kernel32.WaitNamedPipeW(pipe_name, wait_ms):
                 continue
             wait_err = ctypes.get_last_error()
             if wait_err in (_ERROR_FILE_NOT_FOUND, _ERROR_PATH_NOT_FOUND):
                 raise ConnectionError(
-                    f"Named pipe {self.pipe_name} disappeared while waiting."
+                    f"Named pipe {pipe_name} disappeared while waiting."
                 )
             if wait_err in (_ERROR_SEM_TIMEOUT, _ERROR_PIPE_BUSY):
                 continue
@@ -234,6 +306,8 @@ class MaxClient:
             try:
                 transport_used = "namedpipe"
                 response_data = self._send_via_pipe(request, effective_timeout)
+            except AmbiguousMaxInstanceError:
+                raise
             except (ConnectionError, TimeoutError) as exc:
                 fallback_error = str(exc)
                 transport_used = "tcp"
@@ -263,10 +337,15 @@ class MaxClient:
     def _send_via_pipe(self, request: str, timeout: float) -> bytes:
         deadline = time.perf_counter() + timeout
         data = (request + "\n").encode("utf-8")
+        pipe_name = self._resolve_pipe_name()
 
         with self._pipe_lock:
+            if self._selected_pipe_name != pipe_name:
+                self._close_pipe_handle()
+                self._selected_pipe_name = pipe_name
+
             for attempt in range(2):
-                handle = self._ensure_pipe_handle(deadline)
+                handle = self._ensure_pipe_handle(deadline, pipe_name)
                 try:
                     total_written = 0
                     while total_written < len(data):

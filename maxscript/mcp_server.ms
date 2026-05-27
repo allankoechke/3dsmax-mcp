@@ -13,6 +13,7 @@
 */
 
 global MCP_Server
+global MCP_NativePipeRunning
 
 struct MCPServerStruct
 (
@@ -31,6 +32,7 @@ struct MCPServerStruct
 	(
 		try
 		(
+			if MCP_NativePipeRunning != undefined do return MCP_NativePipeRunning
 			local hwnds = windows.getChildHWND 0 "MCPBridgeExecutor"
 			hwnds != undefined and hwnds.count > 0
 		)

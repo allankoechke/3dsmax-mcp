@@ -101,6 +101,11 @@ is unavailable, `tcp_idle_poll_interval_ms` controls how often the fallback
 checks for new local TCP connections while idle; the default is intentionally
 sparse to avoid viewport stutter.
 
+For multi-Max sessions, each 3ds Max window registers its own native pipe. If
+only one Max is running, clients connect to it automatically. If multiple Max
+windows are running, use `MCP Claim This Max` in the target window; clients then
+connect to that claimed instance until another Max is claimed.
+
 ### Scope — read this
 
 `safe_mode` is an **accident preventer**, not a sandbox. It's a case-insensitive substring blocklist, so a determined author (or a sufficiently clever LLM) can bypass it with string concatenation, DotNet reflection, etc. It catches the obvious shapes — LLM hallucinates `deleteFile` → rejected — not an adversarial MaxScript author.

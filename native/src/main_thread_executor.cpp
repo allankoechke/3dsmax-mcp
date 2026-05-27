@@ -96,10 +96,15 @@ std::string MainThreadExecutor::ExecuteSync(
 LRESULT CALLBACK MainThreadExecutor::WndProc(
     HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
-    // WM_MCP_EXECUTE + 1 with wParam=1: show chat window
-    if (msg == WM_MCP_EXECUTE + 1 && wp == 1) {
-        extern void ShowChat();
-        ShowChat();
+    // WM_MCP_EXECUTE + 1 with small wParam commands: macroscript actions.
+    if (msg == WM_MCP_EXECUTE + 1) {
+        if (wp == 1) {
+            extern void ShowChat();
+            ShowChat();
+        } else if (wp == 2) {
+            extern void ClaimNativeInstance();
+            ClaimNativeInstance();
+        }
         return 0;
     }
 

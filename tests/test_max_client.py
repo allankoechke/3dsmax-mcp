@@ -1,7 +1,10 @@
 import unittest
+import json
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from src.max_client import MaxClient
+from src.max_client import AmbiguousMaxInstanceError, MaxClient
 
 
 class MaxClientTests(unittest.TestCase):
@@ -52,6 +55,42 @@ class MaxClientTests(unittest.TestCase):
             client = MaxClient(timeout=1.0, transport="tcp")
             with self.assertRaisesRegex(RuntimeError, "Mismatched response requestId"):
                 client.send_command("x")
+
+    def test_resolve_pipe_uses_active_instance_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "3dsmax-mcp"
+            config.mkdir()
+            active = {
+                "instance_id": "pid-111",
+                "pid": 111,
+                "pipe": r"\\.\pipe\3dsmax-mcp-pid-111",
+            }
+            (config / "active_instance.json").write_text(json.dumps(active), "utf-8")
+
+            with (
+                patch.dict("os.environ", {"LOCALAPPDATA": tmp}, clear=False),
+                patch.object(MaxClient, "_probe_pipe_available", return_value=True),
+            ):
+                self.assertEqual(MaxClient()._resolve_pipe_name(), active["pipe"])
+
+    def test_resolve_pipe_requires_claim_when_multiple_instances_are_live(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            instances = Path(tmp) / "3dsmax-mcp" / "instances"
+            instances.mkdir(parents=True)
+            for pid in (111, 222):
+                data = {
+                    "instance_id": f"pid-{pid}",
+                    "pid": pid,
+                    "pipe": fr"\\.\pipe\3dsmax-mcp-pid-{pid}",
+                }
+                (instances / f"pid-{pid}.json").write_text(json.dumps(data), "utf-8")
+
+            with (
+                patch.dict("os.environ", {"LOCALAPPDATA": tmp}, clear=False),
+                patch.object(MaxClient, "_probe_pipe_available", return_value=True),
+            ):
+                with self.assertRaisesRegex(AmbiguousMaxInstanceError, "MCP Claim This Max"):
+                    MaxClient()._resolve_pipe_name()
 
 
 if __name__ == "__main__":

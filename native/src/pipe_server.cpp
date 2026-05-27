@@ -3,7 +3,8 @@
 #include "mcp_bridge/command_dispatcher.h"
 #include "mcp_bridge/native_handlers.h"
 
-PipeServer::PipeServer(MCPBridgeGUP* gup) : gup_(gup) {
+PipeServer::PipeServer(MCPBridgeGUP* gup, std::wstring pipe_name)
+    : gup_(gup), pipe_name_(std::move(pipe_name)) {
     shutdown_event_ = CreateEvent(nullptr, TRUE, FALSE, nullptr);
 }
 
@@ -61,9 +62,8 @@ void PipeServer::AcceptLoop() {
         // Cleanup finished client threads periodically
         CleanupFinishedThreads();
 
-        // Create pipe with UNLIMITED instances — multiple clients can connect
         HANDLE pipe = CreateNamedPipeW(
-            PIPE_NAME,
+            pipe_name_.c_str(),
             PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
             PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
             PIPE_UNLIMITED_INSTANCES,
