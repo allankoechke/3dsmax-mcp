@@ -136,7 +136,6 @@ If you catch yourself writing MAXScript that a tool already handles, stop and us
 
 - In Windows batch native build scripts, strip the trailing slash from `%~dp0` and quote CMake `-D` paths as one argument (for example `"-DMAXSDK_PATH=..."`) or spaces in repo/SDK paths can make CMake parse a bogus source directory.
 - For multi-Max targeting, prefer per-instance native pipes plus an active-instance file over stopping/starting one shared pipe; this keeps every Max ready and lets users switch by running `MCP Claim This Max`.
-- For per-instance native macros, embed the exact hidden executor HWND when registering the macroscript; global `windows.getChildHWND 0 "MCPBridgeExecutor"` can find another Max process and claim the wrong instance.
 
 ## 8. MAXScript Pitfalls
 
