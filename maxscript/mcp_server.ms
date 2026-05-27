@@ -509,6 +509,40 @@ MCP_Server.loadConfig()
 format "MCP: helpers loaded (safe_mode = %, native bridge = %, tcp idle poll = % ms)\n" \
 	MCP_Server.safeMode (MCP_Server.nativeBridgeAvailable()) MCP_Server.idlePollIntervalMs
 
+macroScript MCP_Claim_This_Max category:"MCP" tooltip:"Make this Max the active MCP target" buttonText:"MCP Claim This Max"
+(
+	on execute do
+	(
+		try
+		(
+			local env = dotNetClass "System.Environment"
+			local specialFolder = dotNetClass "System.Environment+SpecialFolder"
+			local directory = dotNetClass "System.IO.Directory"
+			local file = dotNetClass "System.IO.File"
+			local process = dotNetClass "System.Diagnostics.Process"
+			local localAppData = env.GetFolderPath specialFolder.LocalApplicationData
+			local configDir = localAppData + "\\3dsmax-mcp"
+			local instancesDir = configDir + "\\instances"
+			directory.CreateDirectory configDir
+			directory.CreateDirectory instancesDir
+
+			local pid = (process.GetCurrentProcess()).Id
+			local instanceId = "pid-" + (pid as string)
+			local pipe = "\\\\.\\pipe\\3dsmax-mcp-" + instanceId
+			local pipeJson = substituteString pipe "\\" "\\\\"
+			local json = "{\n  \"instance_id\": \"" + instanceId + "\",\n  \"pid\": " + (pid as string) + ",\n  \"pipe\": \"" + pipeJson + "\"\n}\n"
+
+			file.WriteAllText (instancesDir + "\\" + instanceId + ".json") json
+			file.WriteAllText (configDir + "\\active_instance.json") json
+			format "MCP: this 3ds Max instance is now the active MCP target (%)\n" instanceId
+		)
+		catch
+		(
+			format "MCP: failed to claim this Max: %\n" (getCurrentException())
+		)
+	)
+)
+
 macroScript MCP_Start category:"MCP" tooltip:"Start MCP TCP fallback (port 8765)" buttonText:"MCP Start"
 (
 	on execute do

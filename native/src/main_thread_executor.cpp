@@ -30,11 +30,12 @@ void MainThreadExecutor::Initialize() {
     wndclass_atom_ = RegisterClassEx(&wc);
     if (!wndclass_atom_) return;
 
-    // Create hidden window — NOT HWND_MESSAGE so FindWindow/getChildHWND can find it
-    // (the MCP_Chat macroscript posts +1 to it). Cookie validation in WndProc
-    // prevents the discoverability from becoming a memory-safety primitive.
+    // Create hidden window — NOT HWND_MESSAGE so FindWindow/getChildHWND can
+    // find it. The title is process-specific because MAXScript macroscripts
+    // are persisted in a shared usermacros folder across Max instances.
+    std::wstring window_title = L"MCPBridgeExecutor-" + std::to_wstring(GetCurrentProcessId());
     hwnd_ = CreateWindowEx(
-        0, L"MCPBridgeExecutor", L"MCPBridgeExecutor",
+        0, L"MCPBridgeExecutor", window_title.c_str(),
         0, 0, 0, 0, 0,
         nullptr,
         nullptr, GetModuleHandle(nullptr), nullptr
