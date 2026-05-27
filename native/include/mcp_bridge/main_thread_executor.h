@@ -26,6 +26,8 @@ public:
     // Call from main thread (GUP::Stop)
     void Shutdown();
 
+    HWND Hwnd() const { return hwnd_; }
+
     // Call from ANY thread. In direct mode, runs work on calling thread.
     // Otherwise blocks until work completes on main thread.
     std::string ExecuteSync(std::function<std::string()> work,

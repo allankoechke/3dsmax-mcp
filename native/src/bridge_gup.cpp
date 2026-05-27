@@ -154,25 +154,22 @@ static void OnSystemStartupDone(void* param, NotifyInfo* info) {
     if (!g_gupInstance) return;
     UnRegisterNotification(OnSystemStartupDone, nullptr, NOTIFY_SYSTEM_STARTUP);
 
-    // Register a global MAXScript struct with functions that call our C++ directly
-    // via the hidden executor window's WM_USER message
-    // The trick: we post WM_USER+0x4D43 with a special lParam to trigger ShowChat
+    const auto executor_hwnd = reinterpret_cast<uintptr_t>(g_gupInstance->GetExecutor().Hwnd());
+    const std::string hwnd_literal = std::to_string(executor_hwnd);
+
+    // Register macros that call this exact GUP instance. Do not discover
+    // MCPBridgeExecutor by global window name here; multiple Max processes all
+    // have a hidden executor window with that title.
     HandlerHelpers::RunMAXScript(
         "macroScript MCP_Chat category:\"MCP\" tooltip:\"Open MCP AI Chat\" buttonText:\"MCP Chat\" "
         "( on execute do ( "
-        "  local hwnds = windows.getChildHWND 0 \"MCPBridgeExecutor\"; "
-        "  if hwnds != undefined and hwnds.count > 0 do ( "
-        "    windows.sendMessage hwnds[1] 0x5144 1 0 "
-        "  ) "
+        "  windows.sendMessage " + hwnd_literal + " 0x5144 1 0 "
         ") )"
     );
     HandlerHelpers::RunMAXScript(
         "macroScript MCP_Claim_This_Max category:\"MCP\" tooltip:\"Make this Max the active MCP target\" buttonText:\"MCP Claim This Max\" "
         "( on execute do ( "
-        "  local hwnds = windows.getChildHWND 0 \"MCPBridgeExecutor\"; "
-        "  if hwnds != undefined and hwnds.count > 0 do ( "
-        "    windows.sendMessage hwnds[1] 0x5144 2 0 "
-        "  ) "
+        "  windows.sendMessage " + hwnd_literal + " 0x5144 2 0 "
         ") )"
     );
 }
