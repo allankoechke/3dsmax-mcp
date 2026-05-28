@@ -1,5 +1,6 @@
 #include "mcp_bridge/native_handlers.h"
 #include "mcp_bridge/handler_helpers.h"
+#include "mcp_bridge/spatial_snapshot.h"
 #include "mcp_bridge/bridge_gup.h"
 
 #include <algorithm>
@@ -7,64 +8,9 @@
 
 using json = nlohmann::json;
 using namespace HandlerHelpers;
+using namespace SpatialSnapshot;
 
 namespace {
-
-json PointJson(const Point3& p) {
-    return json::array({ p.x, p.y, p.z });
-}
-
-Point3 SafeNormalizePoint(const Point3& p) {
-    const float len = Length(p);
-    if (len <= 1.0e-6f) return Point3(0.0f, 0.0f, 0.0f);
-    return p / len;
-}
-
-json MatrixRowsJson(const Matrix3& tm) {
-    return json::array({
-        PointJson(tm.GetRow(0)),
-        PointJson(tm.GetRow(1)),
-        PointJson(tm.GetRow(2)),
-        PointJson(tm.GetRow(3)),
-    });
-}
-
-Box3 WorldBoundingBox(INode* node, TimeValue t, const Matrix3& nodeTM) {
-    Box3 worldBox;
-    worldBox.Init();
-
-    ObjectState os = node->EvalWorldState(t);
-    if (!os.obj) {
-        const Point3 pivot = nodeTM.GetTrans();
-        worldBox += pivot;
-        return worldBox;
-    }
-
-    Box3 localBox;
-    os.obj->GetDeformBBox(t, localBox);
-    if (localBox.IsEmpty()) {
-        const Point3 pivot = nodeTM.GetTrans();
-        worldBox += pivot;
-        return worldBox;
-    }
-
-    const Point3 mn = localBox.Min();
-    const Point3 mx = localBox.Max();
-    const Point3 corners[8] = {
-        Point3(mn.x, mn.y, mn.z),
-        Point3(mx.x, mn.y, mn.z),
-        Point3(mn.x, mx.y, mn.z),
-        Point3(mx.x, mx.y, mn.z),
-        Point3(mn.x, mn.y, mx.z),
-        Point3(mx.x, mn.y, mx.z),
-        Point3(mn.x, mx.y, mx.z),
-        Point3(mx.x, mx.y, mx.z),
-    };
-    for (const Point3& corner : corners) {
-        worldBox += (corner * nodeTM);
-    }
-    return worldBox;
-}
 
 void AddNodeAndChildren(INode* node, std::vector<INode*>& out) {
     if (!node) return;
@@ -122,41 +68,6 @@ std::vector<INode*> ResolveTargets(const json& p, Interface* ip) {
     return targets;
 }
 
-json NodeOrientationJson(INode* node, TimeValue t) {
-    Matrix3 tm = node->GetNodeTM(t);
-    const Point3 pivot = tm.GetTrans();
-    const Box3 bbox = WorldBoundingBox(node, t, tm);
-    const Point3 bboxMin = bbox.Min();
-    const Point3 bboxMax = bbox.Max();
-    const Point3 center = (bboxMin + bboxMax) * 0.5f;
-    const Point3 dims = bboxMax - bboxMin;
-    const Point3 pivotToCenter = center - pivot;
-
-    ObjectState os = node->EvalWorldState(t);
-    INode* parent = node->GetParentNode();
-
-    json out;
-    out["name"] = WideToUtf8(node->GetName());
-    out["class"] = os.obj ? WideToUtf8(os.obj->ClassName().data()) : "Unknown";
-    out["parent"] = (parent && !parent->IsRootNode()) ? json(WideToUtf8(parent->GetName())) : json(nullptr);
-    out["pivot"] = PointJson(pivot);
-    out["position"] = PointJson(pivot);
-    out["bbox"] = {
-        { "min", PointJson(bboxMin) },
-        { "max", PointJson(bboxMax) },
-        { "center", PointJson(center) },
-        { "dimensions", PointJson(dims) },
-    };
-    out["pivotToBBoxCenter"] = PointJson(pivotToCenter);
-    out["localAxesWorld"] = {
-        { "x", PointJson(SafeNormalizePoint(tm.GetRow(0))) },
-        { "y", PointJson(SafeNormalizePoint(tm.GetRow(1))) },
-        { "z", PointJson(SafeNormalizePoint(tm.GetRow(2))) },
-    };
-    out["worldMatrixRows"] = MatrixRowsJson(tm);
-    return out;
-}
-
 } // namespace
 
 std::string NativeHandlers::AnalyzeNodeOrientation(const std::string& params, MCPBridgeGUP* gup) {
@@ -178,12 +89,7 @@ std::string NativeHandlers::AnalyzeNodeOrientation(const std::string& params, MC
         }
 
         json result;
-        result["space"] = {
-            { "coordinateSystem", "3ds Max world" },
-            { "upAxis", "Z" },
-            { "groundPlane", "XY" },
-            { "rightHanded", true },
-        };
+        result["space"] = SpaceJson();
         result["query"] = {
             { "pattern", p.value("pattern", "") },
             { "includeChildren", p.value("include_children", false) },

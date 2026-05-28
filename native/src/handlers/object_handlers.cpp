@@ -1,5 +1,6 @@
 #include "mcp_bridge/native_handlers.h"
 #include "mcp_bridge/handler_helpers.h"
+#include "mcp_bridge/spatial_snapshot.h"
 #include "mcp_bridge/bridge_gup.h"
 
 #include <iparamb2.h>
@@ -422,7 +423,7 @@ static std::vector<std::pair<std::string, std::string>> BuildCreateObjectParams(
     if (payload.type() == json::value_t::object) {
         for (auto it = payload.begin(); it != payload.end(); ++it) {
             std::string lkey = ToLowerCopy(it.key());
-            if (lkey == "type" || lkey == "name" || lkey == "params") {
+            if (lkey == "type" || lkey == "name" || lkey == "params" || lkey == "pos_mode") {
                 continue;
             }
             json wrapper = json::object();
@@ -446,6 +447,7 @@ std::string NativeHandlers::CreateObject(const std::string& params, MCPBridgeGUP
         json p = json::parse(params, nullptr, false);
         std::string type = p.value("type", "");
         std::string name = p.value("name", "");
+        const SpatialSnapshot::PosMode posMode = SpatialSnapshot::ParsePosMode(p.value("pos_mode", "ground"));
 
         if (type.empty()) throw std::runtime_error("type is required");
 
@@ -517,18 +519,15 @@ std::string NativeHandlers::CreateObject(const std::string& params, MCPBridgeGUP
             }
         }
 
-        // Apply position
-        if (hasPos) {
-            Matrix3 tm = node->GetNodeTM(t);
-            tm.SetTrans(posOverride);
-            node->SetNodeTM(t, tm);
-        }
+        // Apply placement using shared spatial semantics.
+        SpatialSnapshot::ApplyPosMode(node, t, posOverride, hasPos, posMode);
 
         // Notify and redraw
         obj->NotifyDependents(FOREVER, PART_ALL, REFMSG_CHANGE);
         ip->RedrawViews(t);
 
-        return WideToUtf8(node->GetName());
+        return SpatialSnapshot::BuildCreateObjectResult(
+            node, t, type, posOverride, hasPos, posMode).dump();
     });
 }
 
@@ -821,9 +820,17 @@ std::string NativeHandlers::CloneObjects(const std::string& params, MCPBridgeGUP
 
         ip->RedrawViews(ip->GetTime());
 
+        json nodes = json::array();
+        const TimeValue t = ip->GetTime();
+        for (int i = 0; i < resultTarget.Count(); i++) {
+            nodes.push_back(SpatialSnapshot::BuildSpatialSnapshot(resultTarget[i], t));
+        }
+
         json result;
         result["cloned"] = cloneNames;
         result["notFound"] = notFound;
+        result["nodes"] = nodes;
+        result["space"] = SpatialSnapshot::SpaceJson();
         return result.dump();
     });
 }

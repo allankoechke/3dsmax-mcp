@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from base64 import b64encode
 from functools import wraps
@@ -23,6 +24,34 @@ _ERROR_PREFIXES = (
     "maxscript error",
 )
 _ERROR_SUBSTRINGS = (" not found:",)
+
+
+def tripback_mode() -> str:
+    """minimal: ok/result (or ok/error) only. full: include transport + elapsed_ms."""
+    value = (
+        os.environ.get("MCP_TRIPBACK_MODE")
+        or os.environ.get("THREEDSMAX_MCP_TRIPBACK_MODE")
+        or "minimal"
+    ).strip().lower()
+    return value if value in {"minimal", "full"} else "minimal"
+
+
+def _slim_transport(transport: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not transport:
+        return None
+    slim: dict[str, Any] = {}
+    if transport.get("transport"):
+        slim["transport"] = transport["transport"]
+    if transport.get("fallback_error"):
+        slim["fallback_error"] = transport["fallback_error"]
+    return slim or None
+
+
+def _attach_hint(payload: dict[str, Any], result: Any) -> None:
+    if isinstance(result, dict):
+        hint = result.get("hint")
+        if hint:
+            payload["hint"] = _json_safe(hint)
 
 
 def _json_or_raw(value: Any) -> Any:
@@ -116,18 +145,35 @@ def envelope_result(
     """Wrap a tool return value in a stable JSON envelope."""
     result = _json_or_raw(raw)
     error = _error_from_result(result, raw)
-    payload: dict[str, Any] = {
+    warnings = _coerce_warnings(result)
+
+    if tripback_mode() == "minimal":
+        if error is None:
+            payload: dict[str, Any] = {
+                "ok": True,
+                "result": _json_safe(result),
+            }
+            if warnings:
+                payload["warnings"] = warnings
+            _attach_hint(payload, result)
+            return json.dumps(payload, ensure_ascii=False)
+
+        payload = {"ok": False, "error": error}
+        _attach_hint(payload, result)
+        slim = _slim_transport(transport)
+        if slim:
+            payload["transport"] = slim
+        return json.dumps(payload, ensure_ascii=False)
+
+    payload = {
         "ok": error is None,
         "result": _json_safe(result) if error is None else None,
-        "warnings": _coerce_warnings(result),
+        "warnings": warnings,
         "error": error,
         "transport": transport,
         "elapsed_ms": round(elapsed_ms, 3),
     }
-    if isinstance(result, dict):
-        hint = result.get("hint")
-        if hint:
-            payload["hint"] = _json_safe(hint)
+    _attach_hint(payload, result)
     return json.dumps(payload, ensure_ascii=False)
 
 
@@ -137,14 +183,22 @@ def envelope_exception(
     elapsed_ms: float,
     transport: dict[str, Any] | None = None,
 ) -> str:
+    error = {
+        "type": exc.__class__.__name__,
+        "message": str(exc),
+    }
+    if tripback_mode() == "minimal":
+        payload: dict[str, Any] = {"ok": False, "error": error}
+        slim = _slim_transport(transport)
+        if slim:
+            payload["transport"] = slim
+        return json.dumps(payload, ensure_ascii=False)
+
     payload = {
         "ok": False,
         "result": None,
         "warnings": [],
-        "error": {
-            "type": exc.__class__.__name__,
-            "message": str(exc),
-        },
+        "error": error,
         "transport": transport,
         "elapsed_ms": round(elapsed_ms, 3),
     }

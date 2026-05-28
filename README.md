@@ -1,38 +1,26 @@
 # 3dsmax-mcp
 
 <p align="left">
-  <img src="images/logo.png" alt="3dsmax-mcp logo" width="200">
+  <img src="./images/logo.png" alt="3dsmax-mcp logo" width="220" style="background-color: #ffffff; padding: 16px; border-radius: 8px;">
 </p>
 
-A production oriented MCP server that connects AI agents to Autodesk 3ds Max.
-Works with any MCP-compatible client.
+Connect AI agents to Autodesk 3ds Max through the [Model Context Protocol](https://modelcontextprotocol.io). Ask in natural language; the agent creates objects, builds materials, inspects plugins with dedicated MCP tools instead of MAXScript/Python feedback loops.
+Built-in installer works with Cursor, Claude, Codex and Gemini. 
 
-### Features
+## Features
 
-- **Native C++ Bridge** — 76 handlers running inside 3ds Max as a GUP plugin, 86-130x faster than MAXScript
-- **One-step installer** — `uv run python install.py` handles everything
-- **Quad-view capture** — Screenshotting is fast and supports multi views.
-- **Full default tool surface** — full MCP profile exposes core and specialty scene/object/material/pipeline tools by default
-- **116 tools in full profile** across scene, objects, materials, modifiers, controllers, viewport, introspection.
-- **Bundled MAXScript reference** — 10 topic files for agents to write correct MAXScript
-
-## Architecture
-
-```
-Agent  <-->  FastMCP (Python/stdio)  <-->  Named Pipe  <-->  C++ GUP Plugin  <-->  3ds Max SDK
-                                      |
-                                      +--> TCP:8765 fallback --> MAXScript listener
-```
-
-The native bridge runs inside 3ds Max as a Global Utility Plugin. It reads the scene graph directly through the C++ SDK and communicates over Windows named pipes. 76 native handlers for scene, objects, materials, modifiers, controllers, viewport, introspection, and more.
+- **114 MCP tools** — (77 in core profile) for scene reads, materials, modifiers, controllers, viewport capture, and plugin workflows.
+- **Native Bridge** — only 2023-2027 versions.
+- **Introspection** — discover arbitrary Max classes for all kinds of automation and scripting purposes. 
+- **Bundled agent skill** — There is a bundled maxscript documentation if you want to create your own tools.
 
 ## Requirements
 
 - [Python 3.10+](https://www.python.org/)
 - [uv](https://docs.astral.sh/uv/)
-- Autodesk 3ds Max 2023-2027
+- Autodesk **3ds Max 2023–2027**
 
-## Installation
+## Quick start
 
 ```powershell
 git clone https://github.com/cl0nazepamm/3dsmax-mcp.git
@@ -41,7 +29,11 @@ uv sync
 uv run python install.py
 ```
 
-## Updating
+Restart 3ds Max, then connect your MCP client. The installer registers the server where it can; see [Advanced configuration](docs/ADVANCED.md) for manual client setup.
+
+ I personally use Cursor and Codex.
+
+**Update an existing install:**
 
 ```powershell
 git pull
@@ -49,130 +41,233 @@ uv sync
 uv run python install.py
 ```
 
-To install without copying or building the agent skill files:
-```powershell
-uv run python install.py --skip-skill
-```
-
-## MCP Tool Profile
-
-The external MCP server defaults to the full profile so specialty modules such
-as Data Channel, effects, floor-plan generation, tyFlow, RailClone, wire params,
-and standalone-chat driver tools are available without extra setup. Use the core
-profile only when you want a smaller common-tool surface.
-
-```powershell
-$env:MCP_TOOL_PROFILE = "core"
-python -m src.server
-```
-
-## Skill
-
-The skill file teaches agents how to use the tools, what pitfalls to avoid, and how 3ds Max works. Without it, agents will guess wrong on material workflows, controller paths, and plugin APIs. The installer builds and deploys it automatically. 
-
-However Anthropic models seem to REALLY like using maxscript instead of using the native tooling unlike Codex which uses the right tool most of the time.
-
-If you need to rebuild manually:
-```powershell
-python scripts/build_skill.py
-```
-
-## Safe mode
-
-Both the native bridge and the MAXScript listener read from a shared config:
-
-```
-%LOCALAPPDATA%\3dsmax-mcp\mcp_config.ini
-```
-
-```ini
-[mcp]
-safe_mode = true
-tcp_idle_poll_interval_ms = 1500
-```
-
-When enabled (default), these commands are blocked:
-`DOSCommand`, `ShellLaunch`, `deleteFile`, `python.Execute`, `createFile`
-
-To disable, set `safe_mode = false` and restart 3ds Max.
-
-The TCP fallback is opt-in via the `MCP Start` macroscript. If the native bridge
-is unavailable, `tcp_idle_poll_interval_ms` controls how often the fallback
-checks for new local TCP connections while idle; the default is intentionally
-sparse to avoid viewport stutter.
-
-For multi-Max sessions, each 3ds Max window registers its own native pipe. If
-only one Max is running, clients connect to it automatically. If multiple Max
-windows are running, use `MCP Claim This Max` in the target window; clients then
-connect to that claimed instance until another Max is claimed.
-
-### Scope — read this
-
-`safe_mode` is an **accident preventer**, not a sandbox. It's a case-insensitive substring blocklist, so a determined author (or a sufficiently clever LLM) can bypass it with string concatenation, DotNet reflection, etc. It catches the obvious shapes — LLM hallucinates `deleteFile` → rejected — not an adversarial MaxScript author.
-
-What it **doesn't** cover:
-- Native C++ handlers run unfiltered: `delete_objects`, `manage_scene` (reset/new/open), `render_scene`, `merge_from_file`, `write_osl_shader`, `capture_*` (disk writes). If the LLM hallucinates them they run.
-- The `\\.\pipe\3dsmax-mcp` named pipe uses the default ACL — any process running as your user can open it and send commands. Fine on a single-user dev machine; if you need multi-user isolation, gate on `GetNamedPipeClientProcessId`.
-
-The v0.7.0 chat window runs your configured LLM with direct scene-editing tools. Treat it like you'd treat any local agent that can edit your scene: don't point it at scenes you wouldn't double-click, and keep your API key in `.env` not a shared drive.
-
 ## Tools
 
-Default full profile: 116 tools across scene management, objects, materials, modifiers, controllers, wiring, viewport capture, file access, plugin introspection, tyFlow, Forest Pack, RailClone, Data Channel, and more. Core profile: 79 tools with concise descriptions.
+### Bridge & session
 
-| Category | Tools | Transport |
-|----------|-------|-----------|
-| Scene reads | `get_scene_info`, `get_selection`, `get_scene_snapshot`, `get_selection_snapshot`, `get_scene_delta`, `get_hierarchy` | C++ |
-| Objects | `create_object`, `delete_objects`, `transform_object`, `clone_objects`, `select_objects`, `set_object_property`, `set_visibility`, `set_parent` | C++/Hybrid |
-| Inspection | `inspect_object`, `inspect_properties`, `introspect_class`, `introspect_instance`, `walk_references`, `learn_scene_patterns`, `map_class_relationships` | C++ |
-| Materials | `assign_material`, `set_material_properties`, `get_material_slots`, `create_texture_map`, `palette_laydown`, `write_osl_shader`, `create_shell_material`, `replace_material` | Hybrid |
-| Modifiers | `add_modifier`, `remove_modifier`, `set_modifier_state`, `collapse_modifier_stack`, `batch_modify` | Hybrid |
-| Controllers | `assign_controller`, `inspect_controller`, `inspect_track_view`, `set_controller_props`, `add_controller_target` | Hybrid |
-| Wiring | `wire_params`, `unwire_params`, `get_wired_params`, `list_wireable_params` | Hybrid |
-| Viewport | `capture_viewport`, `capture_multi_view`, `capture_screen`, `render_scene` | C++ |
-| Organization | `manage_layers`, `manage_groups`, `manage_selection_sets`, `manage_scene` | C++ |
-| File access | `inspect_max_file`, `merge_from_file`, `search_max_files`, `batch_file_info` | C++ |
-| Plugins | `discover_plugin_classes`, `introspect_class`, `introspect_instance`, `get_plugin_capabilities` | C++ |
-| Scene events | `watch_scene`, `get_scene_delta` | C++ |
-| tyFlow | `create_tyflow`, `get_tyflow_info`, `modify_tyflow_operator`, `set_tyflow_shape`, `reset_tyflow_simulation` | MAXScript |
-| Forest Pack | `scatter_forest_pack` | MAXScript |
-| Data Channel | `add_data_channel`, `inspect_data_channel`, `set_data_channel_operator` | MAXScript |
-| Scripting | `execute_maxscript` | Pipe |
+| Tool | Description |
+|------|-------------|
+| `get_bridge_status` | Ping the MCP bridge when diagnosing connection errors |
+| `get_session_context` | Bundle bridge status, capabilities, scene summary, and selection in one call |
+| `get_plugin_capabilities` | Max version, renderers, installed plugins, and class counts |
 
-## v0.7.0 — Standalone Chat Mode
+### Scene query
 
-Run an AI chat entirely inside 3ds Max — no external MCP client required. The native bridge ships with a Win32 chat window, an OpenAI-compatible LLM client, and direct access to scene tools.
+| Tool | Description |
+|------|-------------|
+| `query_scene` | Unified reads: `overview`, `filter`, `class`, `property`, `selection`, `delta` |
+| `get_hierarchy` | Recursive child tree for an object |
+| `get_instances` | All instances sharing the same base object |
+| `get_dependencies` | Reference graph via dependents / dependent nodes |
 
-- **Launch:** You can find chat window in usermacros or search it directly by global search.
-- **API key:** `%LOCALAPPDATA%\3dsmax-mcp\.env` — `OPENROUTER_API_KEY=...` (also accepts `LLM_API_KEY` / `OPENAI_API_KEY`). Real env vars override the file. `deploy.bat` seeds `.env.example` on first install.
-- **Settings:** `%LOCALAPPDATA%\3dsmax-mcp\mcp_config.ini` `[llm]` — non-secret knobs only (`base_url`, `model`, `max_tokens`, `temperature`, plus token controls below). Default target is OpenRouter + `anthropic/claude-sonnet-4.6`.
-- **Token controls:** external MCP defaults to `MCP_TOOL_PROFILE=full` plus concise tool descriptions. Standalone chat defaults to `prompt_mode=compact`, `tool_profile=full`, `include_scene_snapshot=true`, `max_scene_roots=25`, `max_prompt_chars=12000`, `max_tool_result_chars=12000`, `max_history_tool_chars=1800`, `max_tool_summary_chars=600`, `max_display_tool_chars=600`, `max_tool_loops=4`. Use `MCP_TOOL_PROFILE=core` or `tool_profile=core` only when you need a smaller tool surface.
-- **Tools:** native tools from `src/tools/*.py` are auto-registered (generated at build time by `scripts/gen_tool_registry.py`), plus `execute_maxscript` as a catch-all. The default chat schema exposes the full profile; the compact registry remains available with `tool_profile=core`.
-- **Security:** the existing `[mcp] safe_mode` filter applies — `execute_maxscript` calls from the chat hit the same keyword blocklist as every other path.
-- **Skill-aware:** the v0.7.0 deploy copies `SKILL.md` to `%LOCALAPPDATA%\3dsmax-mcp\skill\`. The chat uses a compact rule summary by default; set `prompt_mode=full` to inject the deployed `SKILL.md`.
-- **Slash commands:** `/reload`, `/clear`, `/help`.
+### Objects
 
-## Building from source (native bridge)
+| Tool | Description |
+|------|-------------|
+| `create_object` | Create geometry with spatial placement feedback |
+| `delete_objects` | Delete objects by name |
+| `get_object_properties` | Detailed properties for one object |
+| `set_object_property` | Set a single object property |
+| `transform_object` | Move, rotate, and/or scale by offset |
+| `analyze_node_orientation` | Pivot, bbox, local axes, and world matrix for rigging and placement |
+| `clone_objects` | Copy, instance, or reference clones |
+| `set_parent` | Parent or unparent objects |
+| `select_objects` | Change the current selection |
+| `set_visibility` | Show, hide, freeze, or unfreeze |
+| `batch_rename_objects` | Rename many objects in one call |
 
-Only needed if you want to modify the C++ plugin.
+### Modifiers
 
-Install the matching 3ds Max SDKs first. The batch file builds exact-version
-GUPs into `native/bin/`, and `install.py` deploys only the binary matching the
-detected Max version.
+| Tool | Description |
+|------|-------------|
+| `add_modifier` | Add a modifier to an object |
+| `remove_modifier` | Remove a modifier by name |
+| `set_modifier_state` | Enable/disable with viewport/render granularity |
+| `set_modifier_property` | Set a modifier parameter on one or many objects |
+| `collapse_modifier_stack` | Collapse the stack |
+| `make_modifier_unique` | De-instance a shared modifier |
 
-```powershell
-cd native
-.\build.bat all
-```
+### Materials & textures
 
-To build one version:
+| Tool | Description |
+|------|-------------|
+| `get_materials` | List materials assigned in the scene |
+| `get_material_slots` | Compact slot/property readback for a material |
+| `assign_material` | Create a material and assign it to objects |
+| `set_material_property` | Set one property on an object's material |
+| `set_material_properties` | Set multiple material properties at once |
+| `set_sub_material` | Create or assign a Multi/Sub-Object slot |
+| `create_texture_map` | Create a texture map (stored as a MAXScript global) |
+| `set_texture_map_properties` | Edit a texture map global |
+| `create_material_from_textures` | Build a fully wired PBR material from texture files |
+| `create_shell_material` | Wrap any render + export materials in Shell Material (dual pipeline) |
+| `write_osl_shader` | Write OSL to disk and compile an OSLMap |
+| `replace_material` | Swap one material for another on all users |
+| `batch_replace_materials` | Batch material replacement |
+| `palette_laydown` | Fill Material Editor palette slots from a texture folder |
+| `smart_import` | Batch-import meshes from a folder with auto PBR assignment |
 
-```powershell
-.\build.bat 2025
-```
+### Inspection
 
-To build and deploy into installed Max plugin folders:
+| Tool | Description |
+|------|-------------|
+| `inspect_object` | Comprehensive object summary |
+| `inspect_properties` | Deep property dump (object, modifier, material, etc.) |
+| `inspect_modifier_properties` | All properties on one modifier |
+| `introspect_osl` | API surface for OSLMap and shader classes |
+| `walk_references` | Full reference dependency walk |
+| `learn_scene_patterns` | Analyze class usage patterns in the live scene |
+| `map_class_relationships` | ParamBlock2 reference relationships between classes |
+| `watch_scene` | Live event watcher for interactive sessions |
+| `isolate_and_capture_selected` | Per-selection isolated viewport captures |
 
-```powershell
-.\build.bat all deploy
-```
+### Plugins & introspection
+
+| Tool | Description |
+|------|-------------|
+| `discover_plugin_surface` | Find plugin-related classes and entry points |
+| `discover_plugin_classes` | Enumerate registered SDK classes |
+| `list_plugin_classes` | List classes for a plugin or superclass family |
+| `inspect_plugin_class` | Runtime class scan + showClass reflection |
+| `inspect_plugin_constructor` | Creation notes for a plugin class |
+| `inspect_plugin_instance` | Live instance inspection with plugin context |
+| `get_plugin_manifest` | Structured manifest (classes, workflows, gotchas) |
+| `refresh_plugin_manifest` | Rebuild manifest from live runtime |
+| `introspect_class` | Full C++ SDK API surface for a class |
+| `introspect_instance` | Deep SDK introspection with live values |
+
+MCP resources: `resource://3dsmax-mcp/plugins/{name}/manifest|guide|recipes|gotchas`
+
+### Controllers & animation
+
+| Tool | Description |
+|------|-------------|
+| `assign_controller` | Create and assign a controller to a sub-anim track |
+| `inspect_controller` | Inspect one controller track |
+| `inspect_track_view` | Track View-style controller hierarchy |
+| `set_controller_props` | Edit script text or controller properties |
+| `add_controller_target` | Add a target to script/expression/constraint controllers |
+
+### Parameter wiring
+
+| Tool | Description |
+|------|-------------|
+| `list_wireable_params` | Discover wireable sub-anims on an object |
+| `wire_params` | Connect parameters with a wire expression |
+| `get_wired_params` | List existing wire connections |
+| `unwire_params` | Remove a wire |
+
+### Organization
+
+| Tool | Description |
+|------|-------------|
+| `manage_layers` | Create, delete, list, and configure layers; move/select objects |
+| `manage_groups` | Create, ungroup, open, close, attach, detach groups |
+| `manage_selection_sets` | Named selection sets |
+| `manage_scene` | Hold, fetch, reset, save, scene info |
+
+### Viewport & render
+
+| Tool | Description |
+|------|-------------|
+| `capture_viewport` | Capture the active viewport as an image |
+| `capture_multi_view` | Front/right/back/top grid stitched into one image |
+| `capture_screen` | Fullscreen capture (explicit opt-in) |
+| `render_scene` | Render the current view |
+
+### External `.max` files
+
+| Tool | Description |
+|------|-------------|
+| `inspect_max_file` | Read metadata and object names without loading |
+| `merge_from_file` | Selective merge with duplicate handling |
+| `search_max_files` | Scan a folder for objects matching a pattern |
+| `batch_file_info` | Parallel metadata from many `.max` files |
+
+### Effects & state sets
+
+| Tool | Description |
+|------|-------------|
+| `get_effects` | List atmospheric and render effects |
+| `toggle_effect` | Enable or disable an effect by index |
+| `delete_effect` | Remove an effect by index |
+| `get_state_sets` | State Sets with camera assignments |
+| `get_camera_sequence` | Camera-assigned State Sets sorted by frame |
+
+### Data Channel
+
+| Tool | Description |
+|------|-------------|
+| `add_data_channel` | Append operators to a Data Channel modifier stack |
+| `inspect_data_channel` | Read the operator graph |
+| `set_data_channel_operator` | Set properties on one operator |
+| `add_dc_script_operator` | Add a MAXScript operator |
+| `list_dc_presets` | List available presets |
+| `load_dc_preset` | Load a preset into the stack |
+
+### tyFlow
+
+| Tool | Description |
+|------|-------------|
+| `list_tyflow_operator_types` | Available operator names for this install |
+| `create_tyflow` | Create tyFlow with events and operators |
+| `create_tyflow_preset` | Presets: rain, snow, fountain, burst, debris |
+| `get_tyflow_info` | Deep flow/event/operator readback |
+| `modify_tyflow_operator` | Edit operator properties |
+| `set_tyflow_shape` | Configure Shape operator |
+| `set_tyflow_physx` | Object-level PhysX settings |
+| `add_tyflow_collision` | Collision operator + collider list |
+| `add_tyflow_event` | Add an event |
+| `connect_tyflow_events` | Wire Send Out destinations |
+| `remove_tyflow_element` | Remove operator or event |
+| `get_tyflow_particle_count` | Particle count at a frame |
+| `get_tyflow_particles` | Particle data rows |
+| `reset_tyflow_simulation` | Reset one or all tyFlow sims |
+
+### Forest Pack
+
+| Tool | Description |
+|------|-------------|
+| `scatter_forest_pack` | Create a Forest Pack scatter with surfaces and source geometry |
+
+### RailClone
+
+| Tool | Description |
+|------|-------------|
+| `get_railclone_style_graph` | Read style-editor bases, segments, and parameters |
+
+### Floor plan
+
+| Tool | Description |
+|------|-------------|
+| `build_floor_plan` | Generate a 2D floor plan from grid-based room definitions |
+
+### Standalone chat (WIP)
+
+Experimental in-Max chat — see [Advanced configuration — Standalone chat](docs/ADVANCED.md#standalone-chat-in-max). Prefer external MCP for production use.
+
+| Tool | Description |
+|------|-------------|
+| `send_to_chat` | Send a message to the in-Max chat and wait for the reply |
+| `chat_status` | Chat window status and model info |
+| `chat_reload` | Reload config without restarting Max |
+| `chat_clear` | Clear conversation history |
+
+### Scripting & diagnostics
+
+| Tool | Description |
+|------|-------------|
+| `execute_maxscript` | Run MAXScript when no dedicated tool exists (respects safe mode) |
+| `invoke_tool` | Call any registered tool from inside Max (testing) |
+| `run_tool_smoke` | Run live smoke cases against the bridge |
+
+---
+
+## Skill & reference
+
+The installer builds an agent skill from `skills/3dsmax-mcp-dev/SKILL.md` with tool-choice rules, material pipeline notes, and MAXScript reference files. Rebuild manually with `python scripts/build_skill.py` — see [Advanced configuration](docs/ADVANCED.md#agent-skill).
+
+## Further reading
+
+- **[Advanced configuration](docs/ADVANCED.md)** — architecture, safe mode, tool profiles, native builds, standalone chat (WIP)
+- **[LICENSE](LICENSE)**

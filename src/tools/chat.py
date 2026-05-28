@@ -1,12 +1,7 @@
-"""External MCP access to the in-Max standalone chat (v0.7.0+).
+"""External MCP access to the in-Max standalone chat (work in progress).
 
-These tools let an MCP client (Claude Desktop, Cursor, another Claude Code
-session) drive the chat window the bridge hosts inside 3ds Max — useful for
-testing the model configuration, scripted prompts, or routing a prompt
-through the chat's full tool surface instead of making every call yourself.
-
-The chat's system prompt, tool registry, and safe_mode gating apply exactly
-as if the user had typed into the window.
+Experimental — the Win32 chat window, registry sync, and chat_ui native path
+may change. Prefer external MCP (Cursor, Claude Desktop, Codex) for production.
 """
 
 import json as _json
@@ -38,7 +33,7 @@ def _parse_chat_result(response: dict) -> str:
 
 @mcp.tool()
 def send_to_chat(message: str, timeout_ms: int = 180000, silent: bool = False) -> str:
-    """Send a message to the in-Max standalone chat and block until the turn"""
+    """Send a message to the in-Max standalone chat (WIP) and block until the turn completes."""
     payload = _json.dumps({
         "action": "send",
         "message": message,

@@ -1,6 +1,7 @@
 #include "mcp_bridge/bridge_gup.h"
 #include "mcp_bridge/chat_ui.h"
 #include "mcp_bridge/llm_client.h"
+#include "mcp_bridge/native_handlers.h"
 #include "mcp_bridge/handler_helpers.h"
 #include <maxapi.h>
 #include <notify.h>
@@ -8,6 +9,9 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 // ── ClassDesc2 ──────────────────────────────────────────────────
 class MCPBridgeClassDesc : public ClassDesc2 {
@@ -164,6 +168,15 @@ static void OnSystemStartupDone(void* param, NotifyInfo* info) {
         "  if hwnds != undefined and hwnds.count > 0 do windows.sendMessage hwnds[1] 0x5144 1 0 "
         ") )"
     );
+
+    HandlerHelpers::RunMAXScript(
+        "macroScript MCP_ToolSmokeTest category:\"MCP\" tooltip:\"Run MCP read-tier tool smoke test\" buttonText:\"MCP Smoke\" "
+        "( on execute do ( "
+        "  local pid = ((dotNetClass \"System.Diagnostics.Process\").GetCurrentProcess()).Id; "
+        "  local hwnds = windows.getChildHWND 0 (\"MCPBridgeExecutor-\" + (pid as string)); "
+        "  if hwnds != undefined and hwnds.count > 0 do windows.sendMessage hwnds[1] 0x5144 3 0 "
+        ") )"
+    );
 }
 
 void MCPBridgeGUP::RegisterInstance() {
@@ -215,6 +228,42 @@ bool MCPBridgeGUP::IsPipeRunning() const {
 
 void ClaimNativeInstance() {
     if (g_gupInstance) g_gupInstance->ClaimInstance();
+}
+
+void RunToolSmokeMacro() {
+    if (!g_gupInstance) return;
+
+    json params;
+    params["tier"] = "read";
+    params["includeSkipped"] = false;
+    params["dryRun"] = false;
+
+    try {
+        std::string raw = NativeHandlers::RunToolSmoke(params.dump(), g_gupInstance);
+        json report = json::parse(raw, nullptr, false);
+        if (report.is_discarded()) {
+            LogBridge(L"MCP Tool Smoke: completed (unparsed report)", SYSLOG_WARN);
+            return;
+        }
+
+        const int passed = report.value("passed", 0);
+        const int failed = report.value("failed", 0);
+        const int skipped = report.value("skipped", 0);
+        const int total = report.value("total", 0);
+
+        std::wstring msg = L"MCP Tool Smoke (read tier): " +
+            std::to_wstring(passed) + L"/" + std::to_wstring(total) +
+            L" passed, " + std::to_wstring(failed) + L" failed, " +
+            std::to_wstring(skipped) + L" skipped";
+        LogBridge(msg, failed > 0 ? SYSLOG_WARN : SYSLOG_INFO);
+
+        std::ostringstream ms;
+        ms << "format \"[MCP Tool Smoke] % passed / % run, % failed, % skipped\\n\" "
+           << passed << " " << total << " " << failed << " " << skipped;
+        HandlerHelpers::RunMAXScript(ms.str());
+    } catch (const std::exception& e) {
+        LogBridge(L"MCP Tool Smoke failed: " + HandlerHelpers::Utf8ToWide(e.what()), SYSLOG_ERROR);
+    }
 }
 
 // ── GUP implementation ──────────────────────────────────────────

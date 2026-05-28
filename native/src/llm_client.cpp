@@ -222,7 +222,7 @@ void LLMClient::Init() {
         ini, "llm", "prompt_mode", "compact", {"compact", "full", "none"});
     g_config.toolProfile = ReadIniChoice(
         ini, "llm", "tool_profile", "full", {"core", "full"});
-    g_config.includeSceneSnapshot = ReadIniBool(ini, "llm", "include_scene_snapshot", true);
+    g_config.includeSceneSnapshot = ReadIniBool(ini, "llm", "include_scene_snapshot", false);
     g_config.maxSceneRoots = ReadIniInt(ini, "llm", "max_scene_roots", 25, 0, 200);
     g_config.maxPromptChars = ReadIniInt(ini, "llm", "max_prompt_chars", 12000, 2000, 200000);
     g_config.maxToolResultChars = ReadIniInt(ini, "llm", "max_tool_result_chars", 12000, 1000, 200000);

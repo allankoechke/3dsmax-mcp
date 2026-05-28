@@ -105,6 +105,9 @@ LRESULT CALLBACK MainThreadExecutor::WndProc(
         } else if (wp == 2) {
             extern void ClaimNativeInstance();
             ClaimNativeInstance();
+        } else if (wp == 3) {
+            extern void RunToolSmokeMacro();
+            RunToolSmokeMacro();
         }
         return 0;
     }

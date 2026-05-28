@@ -36,7 +36,7 @@ namespace NativeHandlers {
     std::string SetModifierState(const std::string& params, MCPBridgeGUP* gup);
     std::string CollapseModifierStack(const std::string& params, MCPBridgeGUP* gup);
     std::string MakeModifierUnique(const std::string& params, MCPBridgeGUP* gup);
-    std::string BatchModify(const std::string& params, MCPBridgeGUP* gup);
+    std::string SetModifierProperty(const std::string& params, MCPBridgeGUP* gup);
 
     // Phase 3: Inspect & scene query
     std::string InspectObject(const std::string& params, MCPBridgeGUP* gup);
@@ -137,4 +137,8 @@ namespace NativeHandlers {
 
     // Chat UI (v0.7.0)
     std::string ChatUI(const std::string& params, MCPBridgeGUP* gup);
+
+    // Live tool smoke testing (in-Max production path)
+    std::string InvokeTool(const std::string& params, MCPBridgeGUP* gup);
+    std::string RunToolSmoke(const std::string& params, MCPBridgeGUP* gup);
 }

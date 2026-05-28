@@ -331,8 +331,8 @@ std::string CommandDispatcher::Dispatch(
             result = NativeHandlers::CollapseModifierStack(command, gup);
         } else if (cmd_type == "native:make_modifier_unique") {
             result = NativeHandlers::MakeModifierUnique(command, gup);
-        } else if (cmd_type == "native:batch_modify") {
-            result = NativeHandlers::BatchModify(command, gup);
+        } else if (cmd_type == "native:set_modifier_property" || cmd_type == "native:batch_modify") {
+            result = NativeHandlers::SetModifierProperty(command, gup);
         // Phase 3: Inspect & scene query
         } else if (cmd_type == "native:inspect_object") {
             result = NativeHandlers::InspectObject(command, gup);
@@ -468,6 +468,11 @@ std::string CommandDispatcher::Dispatch(
         // Chat UI (v0.7.0)
         } else if (cmd_type == "native:chat_ui") {
             result = NativeHandlers::ChatUI(command, gup);
+        // Live tool smoke testing
+        } else if (cmd_type == "native:invoke_tool") {
+            result = NativeHandlers::InvokeTool(command, gup);
+        } else if (cmd_type == "native:tool_smoke") {
+            result = NativeHandlers::RunToolSmoke(command, gup);
         } else {
             throw std::runtime_error("Unknown command type: " + cmd_type);
         }

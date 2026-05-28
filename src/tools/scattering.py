@@ -36,7 +36,11 @@ def scatter_forest_pack(
     viewport_mode: int = 2,
     render_mode: int = 0,
 ) -> str:
-    """Create a Forest Pack scatter object and wire surfaces + source geometry."""
+    """Create a Forest Pack scatter object and wire surfaces + source geometry.
+
+    Footprint ``widthlist``/``heightlist`` are auto-sized per geometry item from each
+    source node's bounding box (Forest Pack skips items with zero footprint).
+    """
     if not surfaces:
         raise ValueError("surfaces must contain at least one object name.")
     if not geometry:
@@ -122,15 +126,23 @@ def scatter_forest_pack(
                     "{{\\"error\\":\\"Failed to create Forest_Pro object.\\"}}"
                 ) else (
                     local geomTypeList = for i = 1 to geometryNodes.count collect 2
+                    local widthList = #()
+                    local heightList = #()
+                    for n in geometryNodes do (
+                        local bb = nodeGetBoundingBox n n.transform
+                        local dim = bb[2] - bb[1]
+                        local footprint = amax dim.x dim.y
+                        append widthList footprint
+                        append heightList footprint
+                    )
                     local areaTypeList = for i = 1 to surfaceNodes.count collect 3
                     local areaIncExcList = for i = 1 to surfaceNodes.count collect 0
                     local areaProjectList = for i = 1 to surfaceNodes.count collect 2
                     local areaActiveList = for i = 1 to surfaceNodes.count collect true
                     local areaIdList = for i = 1 to surfaceNodes.count collect i
                     local areaNameList = for i = 1 to surfaceNodes.count collect "Surface Area"
-                    local areaNodeList = for i = 1 to surfaceNodes.count collect undefined
                     fp.surflist = surfaceNodes
-                    fp.arnodelist = areaNodeList
+                    fp.arnodelist = surfaceNodes
                     fp.arnamelist = areaNameList
                     fp.artypelist = areaTypeList
                     fp.arincexclist = areaIncExcList
@@ -141,13 +153,11 @@ def scatter_forest_pack(
                     fp.namelist = geometryNames
                     fp.problist = probValues
                     fp.geomlist = geomTypeList
-                    local sourceWidthWU = units.decodeValue "{source_w}cm"
-                    local sourceHeightWU = units.decodeValue "{source_h}cm"
                     local iconSizeWU = units.decodeValue "{icon_cm}cm"
                     local densityUnitsXWU = units.decodeValue "{dens_x_cm}cm"
                     local densityUnitsYWU = units.decodeValue "{dens_y_cm}cm"
-                    fp.widthlist = #(sourceWidthWU)
-                    fp.heightlist = #(sourceHeightWU)
+                    fp.widthlist = widthList
+                    fp.heightlist = heightList
 
                     fp.maxdensity = {density_value}
                     fp.units_x = densityUnitsXWU

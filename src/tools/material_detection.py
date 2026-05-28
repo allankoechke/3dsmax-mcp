@@ -79,6 +79,20 @@ _NORMAL_VARIANT_TOKENS = {
 _COLOR_CHANNELS = {"diffuse", "specular", "emission"}
 
 
+def scan_texture_files(folder: str, recursive: bool = True) -> list[Path]:
+    """Return image files under *folder*, optionally scanning subfolders."""
+    root = Path(folder)
+    if not root.is_dir():
+        return []
+
+    iterator = root.rglob("*") if recursive else root.iterdir()
+    files = [
+        path for path in iterator
+        if path.is_file() and path.suffix.lower() in _IMAGE_EXTENSIONS
+    ]
+    return sorted(files, key=lambda path: str(path).lower())
+
+
 def _scan_texture_folder(folder: str) -> list[Path]:
     """Return all image files in *folder* (non-recursive)."""
     p = Path(folder)

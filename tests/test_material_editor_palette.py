@@ -6,6 +6,10 @@ from unittest.mock import patch
 from src.tools.palette_laydown import palette_laydown
 
 
+def _tripback_message(result):
+    return result["message"] if isinstance(result, dict) else result
+
+
 class MaterialEditorPaletteTests(unittest.TestCase):
     def test_load_texture_folder_to_material_editor_creates_slot_preview_materials(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -26,7 +30,8 @@ class MaterialEditorPaletteTests(unittest.TestCase):
                     material_prefix="pal_",
                 )
 
-        self.assertEqual(result, "Loaded 2")
+        self.assertEqual(_tripback_message(result), "Loaded 2")
+        self.assertIn("hint", result)
         send.assert_called_once()
         maxscript = send.call_args.args[0]
         self.assertIn("MatEditor.Open()", maxscript)
@@ -62,7 +67,7 @@ class MaterialEditorPaletteTests(unittest.TestCase):
             ) as send:
                 result = palette_laydown(tmp, slot_content="bitmap")
 
-        self.assertEqual(result, "Loaded 1 bitmap")
+        self.assertEqual(_tripback_message(result), "Loaded 1 bitmap")
         send.assert_called_once()
         maxscript = send.call_args.args[0]
         self.assertIn('Bitmaptexture name:"wood"', maxscript)
@@ -111,7 +116,8 @@ class MaterialEditorPaletteTests(unittest.TestCase):
                     max_slots=2,
                 )
 
-        self.assertEqual(result, "Loaded 2 grouped PBR material(s)")
+        self.assertEqual(_tripback_message(result), "Loaded 2 grouped PBR material(s)")
+        self.assertEqual(result["material_renderer"], "physical")
         send.assert_called_once()
         maxscript = send.call_args.args[0]
         self.assertIn('PhysicalMaterial name:"mat_oak"', maxscript)
@@ -150,7 +156,8 @@ class MaterialEditorPaletteTests(unittest.TestCase):
                     material_class="OpenPBRMaterial",
                 )
 
-        self.assertEqual(result, "Loaded 2 grouped PBR material(s)")
+        self.assertEqual(_tripback_message(result), "Loaded 2 grouped PBR material(s)")
+        self.assertEqual(result["material_renderer"], "openpbr")
         send.assert_called_once()
         maxscript = send.call_args.args[0]
         self.assertIn('mcp_createOpenPbrPreferred "tex_cloud"', maxscript)
@@ -176,7 +183,8 @@ class MaterialEditorPaletteTests(unittest.TestCase):
                     material_class="ai_standard_surface",
                 )
 
-        self.assertEqual(result, "Loaded Arnold")
+        self.assertEqual(_tripback_message(result), "Loaded Arnold")
+        self.assertEqual(result["material_renderer"], "arnold")
         send.assert_called_once()
         maxscript = send.call_args.args[0]
         self.assertIn('ai_standard_surface name:"tex_crate"', maxscript)
@@ -200,7 +208,7 @@ class MaterialEditorPaletteTests(unittest.TestCase):
             ) as send:
                 result = palette_laydown(tmp, slot_content="pbr")
 
-        self.assertEqual(result, "Loaded ORM")
+        self.assertEqual(_tripback_message(result), "Loaded ORM")
         send.assert_called_once()
         maxscript = send.call_args.args[0]
         self.assertIn("OSLMap()", maxscript)
@@ -227,7 +235,7 @@ class MaterialEditorPaletteTests(unittest.TestCase):
                     include_displacement=False,
                 )
 
-        self.assertEqual(result, "Loaded no displacement")
+        self.assertEqual(_tripback_message(result), "Loaded no displacement")
         send.assert_called_once()
         maxscript = send.call_args.args[0]
         self.assertIn('PhysicalMaterial name:"tex_stone"', maxscript)
@@ -251,7 +259,8 @@ class MaterialEditorPaletteTests(unittest.TestCase):
                     material_class="VRayMtl",
                 )
 
-        self.assertEqual(result, "Loaded V-Ray")
+        self.assertEqual(_tripback_message(result), "Loaded V-Ray")
+        self.assertEqual(result["material_renderer"], "vray")
         send.assert_called_once()
         maxscript = send.call_args.args[0]
         self.assertIn('VRayMtl name:"tex_wood"', maxscript)
@@ -277,7 +286,8 @@ class MaterialEditorPaletteTests(unittest.TestCase):
                     material_class="MaterialX",
                 )
 
-        self.assertEqual(result, "Loaded MaterialX")
+        self.assertEqual(_tripback_message(result), "Loaded MaterialX")
+        self.assertEqual(result["material_renderer"], "materialx")
         send.assert_called_once()
         maxscript = send.call_args.args[0]
         self.assertIn("OpenPBR + MaterialX OSL", maxscript)
@@ -292,6 +302,55 @@ class MaterialEditorPaletteTests(unittest.TestCase):
         self.assertIn("file_colorspace = \"\"", maxscript)
         self.assertNotIn("MultiOutputChannelTexmapToTexmap", maxscript)
         self.assertNotIn("ai_image", maxscript)
+
+    def test_load_texture_folder_to_material_editor_can_make_octane_pbr_materials(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("metal_basecolor.png", "metal_roughness.png", "metal_normal.png"):
+                (root / name).write_bytes(b"fake")
+
+            with patch(
+                "src.tools.material_ops.client.send_command",
+                return_value={"result": "Loaded Octane"},
+            ) as send:
+                result = palette_laydown(
+                    tmp,
+                    slot_content="pbr_material",
+                    material_class="octane",
+                )
+
+        self.assertEqual(_tripback_message(result), "Loaded Octane")
+        self.assertEqual(result["material_renderer"], "octane_standard")
+        self.assertIn("MaterialX", result["supported_material_classes"])
+        ms = send.call_args.args[0]
+        self.assertIn('Std_Surface_Mtl name:"tex_metal"', ms)
+
+    def test_palette_laydown_filters_texture_sets_by_name_pattern(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in (
+                "oak_basecolor.png",
+                "oak_roughness.png",
+                "stone_basecolor.png",
+                "stone_roughness.png",
+            ):
+                (root / name).write_bytes(b"fake")
+
+            with patch(
+                "src.tools.material_ops.client.send_command",
+                return_value={"result": "Loaded 1 grouped PBR material(s)"},
+            ) as send:
+                result = palette_laydown(
+                    tmp,
+                    slot_content="pbr_material",
+                    name_pattern="*oak*",
+                )
+
+        self.assertEqual(_tripback_message(result), "Loaded 1 grouped PBR material(s)")
+        self.assertEqual(result["name_filtered_out"], 1)
+        ms = send.call_args.args[0]
+        self.assertIn('"tex_oak"', ms)
+        self.assertNotIn("stone", ms.lower())
 
 
 if __name__ == "__main__":

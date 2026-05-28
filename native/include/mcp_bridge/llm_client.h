@@ -24,7 +24,7 @@ struct Config {
     float temperature = 0.7f;
     std::string promptMode = "compact"; // compact, full, none
     std::string toolProfile = "core";   // core, full
-    bool includeSceneSnapshot = true;
+    bool includeSceneSnapshot = false;
     int maxSceneRoots = 25;
     int maxPromptChars = 12000;
     int maxToolResultChars = 12000;

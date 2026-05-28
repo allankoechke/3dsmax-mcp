@@ -4,6 +4,65 @@ import re
 from ..server import mcp, client
 from ..coerce import FloatList, StrList
 from src.helpers.maxscript import safe_string
+from src.helpers.spatial import (
+    apply_pos_mode_fix_maxscript,
+    build_create_object_maxscript,
+    build_create_tripback_from_orientation,
+    enrich_spatial_payload,
+    normalize_pos_mode,
+    parse_spatial_json,
+)
+
+
+def _orientation_payload_for_name(name: str) -> dict | None:
+    try:
+        response = client.send_command(
+            _json.dumps({"names": [name]}),
+            cmd_type="native:analyze_node_orientation",
+        )
+        raw = response.get("result", "")
+        if not raw:
+            return None
+        payload = _json.loads(raw) if isinstance(raw, str) else raw
+        return payload if isinstance(payload, dict) else None
+    except (RuntimeError, _json.JSONDecodeError, TypeError):
+        return None
+
+
+def _finalize_create_result(
+    raw: str,
+    *,
+    type: str,
+    pos: FloatList | None,
+    pos_mode: str,
+) -> str:
+    if not raw:
+        return raw
+    if isinstance(raw, str) and raw.strip().startswith("{"):
+        try:
+            payload = parse_spatial_json(raw)
+            return _json.dumps(payload)
+        except (_json.JSONDecodeError, TypeError):
+            pass
+
+    name = raw.strip().strip('"')
+    if not name or name.lower().startswith("error"):
+        return raw
+
+    orientation = _orientation_payload_for_name(name)
+    if orientation:
+        try:
+            payload = build_create_tripback_from_orientation(
+                orientation,
+                type_name=type,
+                pos=list(pos) if pos is not None else None,
+                pos_mode=pos_mode,
+            )
+            return _json.dumps(payload)
+        except ValueError:
+            pass
+
+    return _json.dumps({"name": name, "type": type, "warning": "spatial snapshot unavailable"})
 
 
 @mcp.tool()
@@ -203,6 +262,7 @@ def create_object(
     name: str = "",
     params: str = "",
     pos: FloatList | None = None,
+    pos_mode: str = "ground",
     length: float | None = None,
     width: float | None = None,
     height: float | None = None,
@@ -213,7 +273,15 @@ def create_object(
     fillet: float | None = None,
     capheight: float | None = None,
 ) -> str:
-    """Create a new object in the 3ds Max scene and auto-fill common primitive sizes when omitted."""
+    """Create a geometry object with spatial placement feedback.
+
+    pos_mode controls how pos is interpreted:
+    - ground (default): pos targets the bottom-center of the world bbox (floor contact).
+    - center: pos targets the bbox geometric center.
+    - pivot: pos sets the node pivot directly (legacy/advanced).
+
+    Returns JSON with name, class, placement, bbox, axes, pivot, and localAxesWorld.
+    """
     params = _merge_create_object_params(
         type,
         params,
@@ -228,28 +296,51 @@ def create_object(
         fillet=fillet,
         capheight=capheight,
     )
+    mode = normalize_pos_mode(pos_mode)
 
     if client.native_available:
         try:
-            p = {"type": type}
+            p = {"type": type, "pos_mode": mode}
             if name:
                 p["name"] = name
             if params:
                 p["params"] = params
             response = client.send_command(_json.dumps(p), cmd_type="native:create_object")
-            return response.get("result", "")
+            raw = response.get("result", "")
+            if isinstance(raw, str) and raw and not raw.strip().startswith("{"):
+                name = raw.strip().strip('"')
+                if name:
+                    client.send_command(
+                        apply_pos_mode_fix_maxscript(
+                            name,
+                            list(pos) if pos is not None else None,
+                            mode,
+                        )
+                    )
+            return _finalize_create_result(
+                raw,
+                type=type,
+                pos=pos,
+                pos_mode=mode,
+            )
         except RuntimeError:
             pass
 
     # ── MAXScript fallback (TCP) ──────────────────────────────────
-    safe = safe_string(name)
-    name_param = f' name:"{safe}"' if name else ""
-    maxscript = f"""(
-        local obj = {type}{name_param} {params}
-        obj.name
-    )"""
+    maxscript = build_create_object_maxscript(
+        type=type,
+        name=name,
+        params=params,
+        pos=list(pos) if pos is not None else None,
+        pos_mode=mode,
+    )
     response = client.send_command(maxscript)
-    return response.get("result", "")
+    return _finalize_create_result(
+        response.get("result", ""),
+        type=type,
+        pos=pos,
+        pos_mode=mode,
+    )
 
 
 @mcp.tool()

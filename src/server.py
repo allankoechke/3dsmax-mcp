@@ -51,8 +51,7 @@ CORE_TOOL_MODULES = (
     "bridge",
     "capabilities",
     "session_context",
-    "scene",
-    "snapshots",
+    "query_scene",
     "scene_query",
     "scene_manage",
     "objects",
@@ -66,6 +65,7 @@ CORE_TOOL_MODULES = (
     "materials",
     "material_ops",
     "palette_laydown",
+    "smart_import",
     "material_replace",
     "inspect",
     "plugins",
@@ -75,6 +75,7 @@ CORE_TOOL_MODULES = (
     "file_access",
     "learning",
     "controllers",
+    "tool_test",
 )
 
 SPECIALTY_TOOL_MODULES = (
@@ -140,12 +141,14 @@ def max_assistant() -> str:
     """Default assistant instructions for MCP clients like Claude Desktop."""
     base_rules = (
         "You are a 3ds Max assistant connected via MCP.\n"
-        "For user requests about the live 3ds Max scene, call MCP tools directly.\n"
+        "For user requests about the live 3ds Max scene, call the MCP tool that matches the task directly.\n"
         "Do not inspect repository source files, run Python imports, or run repository tests for live scene requests unless the user explicitly asks for repo/debug/test work or direct MCP tools are unavailable.\n"
-        "Use get_bridge_status if connection health or host state is uncertain.\n"
-        "Start with get_scene_snapshot / get_selection_snapshot for fast live context.\n"
+        "Do not call get_bridge_status or get_session_context as a session preamble or before every task.\n"
+        "Use get_bridge_status only when a tool fails with a connection/transport error and you need to diagnose the bridge.\n"
+        "Use query_scene(action=overview|filter|class|property|selection|delta) for scene reads.\n"
+        "Use get_session_context only when the user explicitly wants bridge + capabilities + scene + selection in one call.\n"
         "Use inspect_track_view to browse an object's animation/controller hierarchy before targeting a specific param_path.\n"
-        "When working with plugins or unfamiliar classes, start with discover_plugin_surface or get_plugin_manifest.\n"
+        "When working with plugins or unfamiliar classes, use discover_plugin_surface or get_plugin_manifest.\n"
         "Use inspect_plugin_class before making assumptions about a plugin class surface.\n"
         "Use inspect_plugin_instance for live plugin objects when generic object inspection is too shallow.\n"
         "Plugin resources are available under resource://3dsmax-mcp/plugins/{plugin_name}/manifest, /guide, /recipes, and /gotchas.\n"
@@ -153,13 +156,13 @@ def max_assistant() -> str:
         "For tyFlow creation/mutation, use create_tyflow, modify_tyflow_operator, set_tyflow_shape, set_tyflow_physx, and get_tyflow_particles.\n"
         "For RailClone maintenance, use get_railclone_style_graph to read the exposed style graph (bases/segments/parameters) before edits.\n"
         "Prefer dedicated tools over raw MAXScript when available.\n"
-        "Inspect objects/properties before edits.\n"
-        "After any meaningful mutation, verify with get_scene_delta or re-inspect.\n"
+        "Inspect objects/properties before edits when you do not already have the needed data.\n"
+        "After any meaningful mutation, verify with query_scene(action=delta) or re-inspect.\n"
         "Work in natural language with the user, but keep tool usage structured and explicit.\n"
         "DO NOT render unless the user asks.\n"
         "Use capture_viewport for fast viewport context.\n"
-        "MCP tool replies use a JSON envelope: ok, result, warnings, error, transport, elapsed_ms.\n"
-        "If ok is false, read error.message and transport before retrying or choosing a fallback.\n"
+        "MCP tool replies default to minimal tripback: `{ok, result}` on success, `{ok, error}` on failure (transport only when present on errors). Set MCP_TRIPBACK_MODE=full for elapsed_ms and full transport metadata.\n"
+        "If ok is false, read error.message before retrying or choosing a fallback.\n"
         f"Reference resource: {SKILL_RESOURCE_URI}\n"
         "Load the reference resource only when you need detailed project rules or MAXScript examples.\n"
     )

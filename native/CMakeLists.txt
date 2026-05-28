@@ -50,6 +50,7 @@ endif()
 # If Python or the script is unavailable, llm_client.cpp falls back to a
 # hand-coded registry so chat still works.
 set(TOOL_REGISTRY_INC "${CMAKE_CURRENT_SOURCE_DIR}/generated/chat_tool_registry.inc")
+set(TOOL_SMOKE_INC "${CMAKE_CURRENT_SOURCE_DIR}/generated/tool_smoke_cases.inc")
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
     file(GLOB_RECURSE PY_TOOL_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../src/tools/*.py")
@@ -64,6 +65,18 @@ if(Python3_Interpreter_FOUND)
         VERBATIM
     )
     add_custom_target(gen_tool_registry DEPENDS "${TOOL_REGISTRY_INC}")
+
+    add_custom_command(
+        OUTPUT "${TOOL_SMOKE_INC}"
+        COMMAND ${Python3_EXECUTABLE}
+                "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/gen_tool_smoke.py"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/gen_tool_smoke.py"
+                ${PY_TOOL_SOURCES}
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/.."
+        COMMENT "Generating tool_smoke_cases.inc from src/tools/*.py"
+        VERBATIM
+    )
+    add_custom_target(gen_tool_smoke DEPENDS "${TOOL_SMOKE_INC}")
 else()
     message(WARNING "Python3 not found — chat tool registry will use hand-coded fallback in llm_client.cpp")
 endif()
@@ -76,6 +89,7 @@ set(SOURCES
     src/command_dispatcher.cpp
     src/main_thread_executor.cpp
     src/handlers/scene_handlers.cpp
+    src/spatial_snapshot.cpp
     src/handlers/object_handlers.cpp
     src/handlers/orientation_handlers.cpp
     src/handlers/modifier_handlers.cpp
@@ -93,6 +107,7 @@ set(SOURCES
     src/handlers/state_sets_handlers.cpp
     src/handlers/discovery_handlers.cpp
     src/handlers/chat_handlers.cpp
+    src/handlers/tool_test_handlers.cpp
     src/chat_ui.cpp
     src/llm_client.cpp
 )
@@ -102,7 +117,7 @@ add_library(mcp_bridge SHARED ${SOURCES})
 # llm_client.cpp #include's generated/chat_tool_registry.inc. Make the build
 # wait for the generator (when Python is available).
 if(Python3_Interpreter_FOUND)
-    add_dependencies(mcp_bridge gen_tool_registry)
+    add_dependencies(mcp_bridge gen_tool_registry gen_tool_smoke)
 endif()
 
 # Output as .gup

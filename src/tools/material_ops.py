@@ -14,6 +14,18 @@ from typing import Optional
 from ..server import mcp, client
 from ..coerce import StrList
 from src.helpers.maxscript import safe_string, safe_value
+from src.helpers.material_tripback import (
+    material_class_hint,
+    unsupported_material_class_result,
+    wrap_material_tool_result,
+)
+from src.helpers.palette_sampling import (
+    collect_one_sample_per_subfolder,
+    normalize_overflow_mode,
+    normalize_sample_mode,
+    split_palette_and_library,
+)
+from src.helpers.path_filter import filter_by_name_pattern
 from .material_detection import (
     _COLOR_CHANNELS,
     _DEFAULT_CHANNEL_PATTERNS,
@@ -23,12 +35,13 @@ from .material_detection import (
     _renderer_from_material_class,
     _scan_texture_folder,
 )
-from .material_shell import (
-    UBER_OUT_B as _UBER_OUT_B,
-    UBER_OUT_COL as _UBER_OUT_COL,
-    UBER_OUT_G as _UBER_OUT_G,
-    UBER_OUT_R as _UBER_OUT_R,
-    build_shell_maxscript,
+from .material_shell import build_shell_wrap_maxscript, _extract_material_builder_body
+from ._pbr_material_builder import (
+    RENDERER_LABELS as _PBR_RENDERER_LABELS,
+    groups_need_uberbitmap_osl as _pbr_groups_need_uberbitmap_osl,
+    pbr_helpers_preamble_lines as _pbr_helpers_preamble_lines,
+    pbr_per_group_lines as _pbr_per_group_lines,
+    pbr_renderer_setup_lines as _pbr_renderer_setup_lines,
 )
 
 
@@ -159,140 +172,6 @@ _RENDERER_CONFIGS: dict[str, dict] = {
         },
     },
 }
-
-_PBR_SLOT_CANDIDATES: dict[str, dict[str, list[str]]] = {
-    "openpbr": {
-        "diffuse":      ["base_color_map", "baseColor_map", "basecolor_map", "base_map", "diffuse_map"],
-        "ao":           ["base_color_map", "baseColor_map", "basecolor_map", "base_map", "diffuse_map"],
-        "roughness":    ["roughness_map", "specular_roughness_map", "base_roughness_map"],
-        "glossiness":   ["roughness_map", "specular_roughness_map", "base_roughness_map"],
-        "metallic":     ["metalness_map", "metallic_map", "base_metalness_map"],
-        "normal":       ["bump_map", "normal_map"],
-        "bump":         ["bump_map", "normal_map"],
-        "displacement": ["displacement_map"],
-        "opacity":      ["opacity_map", "cutout_map", "transparency_map"],
-        "emission":     ["emission_color_map", "emit_color_map", "emission_map"],
-        "translucency": ["transmission_color_map", "trans_color_map", "transmission_map"],
-        "specular":     ["specular_color_map", "refl_color_map"],
-    },
-    "physical": {
-        "diffuse":      ["base_color_map"],
-        "ao":           ["base_color_map"],
-        "roughness":    ["roughness_map"],
-        "glossiness":   ["roughness_map"],
-        "metallic":     ["metalness_map"],
-        "normal":       ["bump_map"],
-        "bump":         ["bump_map"],
-        "displacement": ["displacement_map"],
-        "opacity":      ["cutout_map"],
-        "emission":     ["emit_color_map", "emission_map"],
-        "translucency": ["trans_color_map", "transparency_map"],
-        "specular":     ["refl_color_map"],
-    },
-    "materialx": {
-        "diffuse":      ["base_color_map", "baseColor_map", "basecolor_map", "base_map", "diffuse_map"],
-        "ao":           ["base_color_map", "baseColor_map", "basecolor_map", "base_map", "diffuse_map"],
-        "roughness":    ["roughness_map", "specular_roughness_map", "base_roughness_map"],
-        "glossiness":   ["roughness_map", "specular_roughness_map", "base_roughness_map"],
-        "metallic":     ["metalness_map", "metallic_map", "base_metalness_map"],
-        "normal":       ["bump_map", "normal_map"],
-        "bump":         ["bump_map", "normal_map"],
-        "displacement": ["displacement_map"],
-        "opacity":      ["opacity_map", "cutout_map", "transparency_map"],
-        "emission":     ["emission_color_map", "emit_color_map", "emission_map"],
-        "translucency": ["transmission_color_map", "trans_color_map", "transmission_map"],
-        "specular":     ["specular_color_map", "refl_color_map"],
-    },
-    "arnold": {
-        "diffuse":      ["base_color_shader"],
-        "ao":           ["base_color_shader"],
-        "roughness":    ["specular_roughness_shader"],
-        "glossiness":   ["specular_roughness_shader"],
-        "metallic":     ["metalness_shader"],
-        "normal":       ["normal_shader"],
-        "bump":         ["normal_shader"],
-        "opacity":      ["opacity_shader"],
-        "emission":     ["emission_color_shader"],
-        "translucency": ["transmission_shader"],
-        "specular":     ["specular_color_shader"],
-    },
-    "redshift": {
-        "diffuse":      ["base_color_map"],
-        "ao":           ["base_color_map"],
-        "roughness":    ["refl_roughness_map"],
-        "glossiness":   ["refl_roughness_map"],
-        "metallic":     ["metalness_map"],
-        "normal":       ["bump_input"],
-        "bump":         ["bump_input"],
-        "displacement": ["displacement_input"],
-        "opacity":      ["opacity_color_map"],
-        "emission":     ["emission_color_map"],
-        "translucency": ["refr_color_map"],
-        "specular":     ["refl_color_map"],
-    },
-    "vray": {
-        "diffuse":      ["texmap_diffuse", "diffuse_texmap", "diffuseMap"],
-        "ao":           ["texmap_diffuse", "diffuse_texmap", "diffuseMap"],
-        "roughness":    ["texmap_roughness", "roughness_texmap", "texmap_reflectionRoughness", "reflectionRoughness_texmap", "reflection_roughness_texmap"],
-        "glossiness":   ["texmap_reflectionGlossiness", "reflectionGlossiness_texmap", "reflection_glossiness_texmap"],
-        "metallic":     ["texmap_metalness", "metalness_texmap", "texmap_metallic", "metallic_texmap"],
-        "normal":       ["texmap_bump", "bump_texmap", "bumpMap"],
-        "bump":         ["texmap_bump", "bump_texmap", "bumpMap"],
-        "displacement": ["texmap_displacement", "displacement_texmap", "displacementMap"],
-        "opacity":      ["texmap_opacity", "opacity_texmap", "opacityMap"],
-        "emission":     ["texmap_self_illumination", "selfIllumination_texmap", "self_illumination_texmap"],
-        "translucency": ["texmap_translucent", "translucent_texmap", "texmap_translucency"],
-        "specular":     ["texmap_reflection", "reflection_texmap", "reflectionMap"],
-    },
-    "octane_standard": {
-        "diffuse":      ["baseColor_tex", "albedo_tex"],
-        "ao":           ["baseColor_tex", "albedo_tex"],
-        "roughness":    ["roughness_tex"],
-        "glossiness":   ["roughness_tex"],
-        "metallic":     ["metallic_tex"],
-        "normal":       ["normal_tex"],
-        "bump":         ["bump_tex"],
-        "displacement": ["displacement"],
-        "opacity":      ["opacity_tex"],
-        "emission":     ["emissionColor_tex", "emission"],
-        "translucency": ["transmissionColor_tex", "transmission_tex"],
-        "specular":     ["specularColor_tex", "specular_tex"],
-    },
-    "octane_pbr": {
-        "diffuse":      ["baseColor_tex"],
-        "ao":           ["baseColor_tex"],
-        "roughness":    ["roughness_tex"],
-        "glossiness":   ["roughness_tex"],
-        "metallic":     ["metallic_tex"],
-        "normal":       ["normal_tex"],
-        "bump":         ["bump_tex"],
-        "displacement": ["displacement"],
-        "opacity":      ["opacity_tex"],
-        "emission":     ["emissionColor_tex", "emission"],
-        "translucency": ["transmissionColor_tex"],
-        "specular":     ["specularColor_tex", "specular_tex"],
-    },
-    "octane_universal": {
-        "diffuse":      ["albedo_tex"],
-        "ao":           ["albedo_tex"],
-        "roughness":    ["roughness_tex"],
-        "glossiness":   ["roughness_tex"],
-        "metallic":     ["metallic_tex"],
-        "normal":       ["normal_tex"],
-        "bump":         ["bump_tex"],
-        "displacement": ["displacement"],
-        "opacity":      ["opacity_tex"],
-        "emission":     ["emission"],
-        "translucency": ["transmission_tex"],
-        "specular":     ["specular_tex"],
-    },
-}
-
-# Octane Channel_picker.colorChannel values for ORM split (R/G/B)
-_OCTANE_CH_R = 0
-_OCTANE_CH_G = 1
-_OCTANE_CH_B = 2
-
 
 def _ms_path(p: Path) -> str:
     """Convert a Path to a MAXScript-safe forward-slash string."""
@@ -530,6 +409,48 @@ def _build_physical_maxscript(
     lines.append('summary += " | Channels: " + channelList')
     lines.append('summary')
 
+    return "(\n    " + "\n    ".join(lines) + "\n)"
+
+
+def _build_shared_pbr_maxscript(
+    matched: dict[str, Path],
+    material_name: str,
+    renderer: str,
+    assign_to: list[str] | None,
+    include_displacement: bool = True,
+) -> str:
+    """Build one PBR material via the shared pbr_per_group_lines builder."""
+    group = {"name": material_name, "channels": matched, "aliases": {}}
+    groups = [group]
+    safe_mat = safe_string(material_name)
+    lines = list(_pbr_helpers_preamble_lines())
+    lines.extend(_pbr_renderer_setup_lines(
+        renderer,
+        needs_uberbitmap_osl=_pbr_groups_need_uberbitmap_osl(groups, renderer),
+    ))
+    lines.append('summary = ""')
+    lines.extend(_pbr_per_group_lines(
+        group,
+        idx=1,
+        mat_var="mat",
+        mat_name=safe_mat,
+        renderer=renderer,
+        include_displacement=include_displacement,
+    ))
+    lines.append(f'summary = mat.name + " (" + ((classOf mat) as string) + ")"')
+    if assign_to:
+        names_arr = "#(" + ", ".join(f'"{safe_string(n)}"' for n in assign_to) + ")"
+        lines.extend([
+            f"nameList = {names_arr}",
+            "assignCount = 0",
+            "for n in nameList do (obj = getNodeByName n; if obj != undefined then (obj.material = mat; assignCount += 1))",
+            'summary += " | Assigned to " + (assignCount as string) + " object(s)"',
+        ])
+    lines.extend([
+        'summary += " | Channels: " + channelList',
+        'if skippedList != "" do summary += " | Skipped: " + skippedList',
+        "summary",
+    ])
     return "(\n    " + "\n    ".join(lines) + "\n)"
 
 
@@ -1425,8 +1346,13 @@ def create_material_from_textures(
     material_name: str = "",
     assign_to: StrList | None = None,
     custom_patterns: dict[str, list[str]] | None = None,
-) -> str:
-    """Create a fully-wired PBR material from a folder of texture maps."""
+) -> str | dict:
+    """Create a fully-wired PBR material from a folder of texture maps.
+
+    Pass ``material_class`` to pick the renderer — any value from tripback
+    ``supported_material_classes`` / ``hint.renderers`` (OpenPBR default, Physical,
+    Arnold, Redshift, V-Ray, MaterialX, Octane, etc.).
+    """
     # -- Step 1: Scan folder (Python-side) --
     files = _scan_texture_folder(texture_folder)
     if not files:
@@ -1443,52 +1369,34 @@ def create_material_from_textures(
         return f"No textures matched any channel pattern. File stems: {suffixes}"
 
     # -- Step 3: Determine renderer / material class --
-    # Default is OpenPBR — neutral PBR material that works without a renderer.
-    # Shell_Material is a wrapping construct (render slot + export slot), only
-    # built when the caller explicitly asks for it via material_class.
-    class_lower = material_class.lower().strip() if material_class else ""
     if not material_class:
         renderer = "openpbr"
-    elif class_lower in {"shell", "shell_material", "shell_mtl", "shell_material_arnold", "shell_arnold_orm"}:
-        renderer = "shell"
-    elif "openpbr" in class_lower or "open_pbr" in class_lower:
-        renderer = "openpbr"
-    elif "ai_standard" in class_lower or "arnold" in class_lower:
-        renderer = "arnold"
-    elif "physical" in class_lower:
-        renderer = "physical"
-    elif "rs_standard" in class_lower or "redshift" in class_lower:
-        renderer = "redshift"
     else:
-        return (f"Unsupported material_class: {material_class}. "
-                "Use OpenPBRMaterial, Shell_Material, ai_standard_surface, PhysicalMaterial, or RS_Standard_Material.")
+        renderer = _renderer_from_material_class(material_class)
+        if renderer is None:
+            return unsupported_material_class_result(
+                material_class, tool="create_material_from_textures",
+            )
 
     # -- Step 4: Derive material name --
     if not material_name:
         material_name = Path(texture_folder).name
 
     # -- Step 5: Build MAXScript --
-    if renderer == "shell":
-        if "diffuse" not in matched or "orm" not in matched:
-            return "Shell_Material workflow requires at least diffuse/basecolor and packed ORM textures."
-        maxscript = build_shell_maxscript(
-            shell_name=material_name,
-            render_name=f"{material_name}_arnold",
-            base_color_path=matched["diffuse"],
-            orm_path=matched["orm"],
-            normal_path=matched.get("normal"),
-            gltf_material_name=f"{material_name}_gltf",
-            assign_to=assign_to,
-            create_export_material=True,
-        )
-    elif renderer == "openpbr":
+    if renderer == "openpbr":
         maxscript = _build_openpbr_maxscript(matched, material_name, assign_to)
     elif renderer == "arnold":
         maxscript = _build_arnold_maxscript(matched, material_name, assign_to)
     elif renderer == "redshift":
         maxscript = _build_redshift_maxscript(matched, material_name, assign_to)
-    else:
+    elif renderer == "physical":
         maxscript = _build_physical_maxscript(matched, material_name, assign_to)
+    elif renderer in {
+        "octane_standard", "octane_pbr", "octane_universal", "vray", "materialx",
+    }:
+        maxscript = _build_shared_pbr_maxscript(matched, material_name, renderer, assign_to)
+    else:
+        maxscript = _build_openpbr_maxscript(matched, material_name, assign_to)
 
     # Wrap in try/catch
     maxscript = f"""(
@@ -1501,20 +1409,19 @@ def create_material_from_textures(
 
     # -- Step 6: Send to Max --
     response = client.send_command(maxscript)
-    return response.get("result", "")
+    raw = response.get("result", "")
+    return wrap_material_tool_result(
+        str(raw),
+        material_class=material_class,
+        renderer=renderer,
+        tool="create_material_from_textures",
+    )
 
 
 def _scan_material_editor_palette_files(folder: str, recursive: bool) -> list[Path]:
-    root = Path(folder)
-    if not root.is_dir():
-        return []
+    from .material_detection import scan_texture_files
 
-    iterator = root.rglob("*") if recursive else root.iterdir()
-    files = [
-        path for path in iterator
-        if path.is_file() and path.suffix.lower() in _IMAGE_EXTENSIONS
-    ]
-    return sorted(files, key=lambda path: str(path).lower())
+    return scan_texture_files(folder, recursive)
 
 
 def _build_material_editor_palette_maxscript(
@@ -1523,7 +1430,9 @@ def _build_material_editor_palette_maxscript(
     open_editor: bool,
     material_prefix: str,
     slot_content: str,
+    library_files: list[Path] | None = None,
 ) -> str:
+    library_files = library_files or []
     lines: list[str] = [
         "fn mcp_setFirstMap target propNames tex = (",
         "    for propName in propNames do (",
@@ -1547,6 +1456,7 @@ def _build_material_editor_palette_maxscript(
         "    m",
         ")",
         "local loaded = #()",
+        "local libraryLoaded = #()",
         "local classes = #()",
         "local errors = #()",
         f"local slotIndex = {start_slot}",
@@ -1591,10 +1501,41 @@ def _build_material_editor_palette_maxscript(
                 f') catch (append errors ("{safe_string(fpath.name)}: " + (getCurrentException())))',
             ])
 
+    for idx, fpath in enumerate(library_files, start=len(files) + 1):
+        path_literal = safe_string(_ms_path(fpath))
+        tex_name = safe_string(fpath.stem)
+        mat_name = safe_string(f"{material_prefix}{fpath.stem}")
+        tex_var = f"libtex_{idx}"
+        mat_var = f"libmat_{idx}"
+        if slot_content == "bitmap":
+            lines.extend([
+                "try (",
+                f'    local {tex_var} = Bitmaptexture name:"{tex_name}" filename:@"{path_literal}"',
+                f"    try (append currentMaterialLibrary {tex_var}) catch ()",
+                f'    append libraryLoaded ("lib: {safe_string(fpath.name)} -> " + ((classOf {tex_var}) as string))',
+                f"    appendIfUnique classes ((classOf {tex_var}) as string)",
+                f') catch (append errors ("{safe_string(fpath.name)}: " + (getCurrentException())))',
+            ])
+        else:
+            lines.extend([
+                "try (",
+                f'    local {tex_var} = Bitmaptexture name:"{tex_name}" filename:@"{path_literal}"',
+                f'    local {mat_var} = mcp_createOpenPbrPreferred "{mat_name}"',
+                f'    local slotName = mcp_setFirstMap {mat_var} #("base_color_map", "baseColor_map", "basecolor_map", "base_map", "diffuse_map") {tex_var}',
+                f'    if slotName == undefined do try ({mat_var}.base_color_map = {tex_var}; slotName = "base_color_map") catch ()',
+                f'    local specName = mcp_setFirstValue {mat_var} #("specular_color", "specularColor", "specular", "refl_color") (color 0 0 0)',
+                f"    try (append currentMaterialLibrary {mat_var}) catch ()",
+                f'    append libraryLoaded ("lib: " + {mat_var}.name + " -> " + ((classOf {mat_var}) as string))',
+                f"    appendIfUnique classes ((classOf {mat_var}) as string)",
+                f') catch (append errors ("{safe_string(fpath.name)}: " + (getCurrentException())))',
+            ])
+
     content_label = "bitmap texture map" if slot_content == "bitmap" else "OpenPBR-first texture material"
     lines.extend([
         f'local msg = "Loaded " + (loaded.count as string) + " {content_label}(s) into Material Editor slots"',
         'if loaded.count > 0 do msg += " [" + loaded[1] + " .. " + loaded[loaded.count] + "]"',
+        'if libraryLoaded.count > 0 do msg += " | Library: " + (libraryLoaded.count as string) + " item(s)"',
+        'if libraryLoaded.count > 0 do msg += " [" + libraryLoaded[1] + " .. " + libraryLoaded[libraryLoaded.count] + "]"',
         'if classes.count > 0 do msg += " | Classes: " + (classes as string)',
         'if errors.count > 0 do (',
         '    msg += " | Errors: "',
@@ -1617,89 +1558,24 @@ def _build_material_editor_pbr_palette_maxscript(
     include_displacement: bool = True,
     unmatched_count: int = 0,
     duplicate_count: int = 0,
+    library_groups: list[dict] | None = None,
 ) -> str:
-    """Generate MAXScript for one fully wired PBR material per texture set."""
-    renderer_label = {
-        "openpbr": "OpenPBR-first",
-        "materialx": "OpenPBR + MaterialX OSL",
-        "physical": "PhysicalMaterial",
-        "arnold": "Arnold ai_standard_surface",
-        "redshift": "Redshift RS_Standard_Material",
-        "vray": "V-Ray VRayMtl",
-        "octane_standard": "Octane Std Surface (Std_Surface_Mtl)",
-        "octane_pbr": "Octane Open PBR Surface (Open_PBR_Surf__Mtl)",
-        "octane_universal": "Octane Universal (Universal_material)",
-    }[renderer]
-    is_octane = renderer.startswith("octane")
+    """Generate MAXScript for one fully wired PBR material per texture set, placed in Material Editor slots."""
+    renderer_label = _PBR_RENDERER_LABELS[renderer]
+    library_groups = library_groups or []
 
-    lines: list[str] = [
-        "fn mcp_setFirstMap target propNames tex = (",
-        "    for propName in propNames do (",
-        "        try (setProperty target (propName as name) tex; return propName) catch ()",
-        "    )",
-        "    undefined",
-        ")",
-        "fn mcp_setFirstValue target propNames value = (",
-        "    for propName in propNames do (",
-        "        try (setProperty target (propName as name) value; return propName) catch ()",
-        "    )",
-        "    undefined",
-        ")",
-        "fn mcp_enableMapSlot target slotName = (",
-        "    if slotName != undefined do (",
-        '        try (setProperty target ((slotName + "_on") as name) true) catch ()',
-        '        try (setProperty target ((slotName + "_enable") as name) true) catch ()',
-        '        try (',
-        '            local s = slotName as string',
-        '            if matchPattern s pattern:"*_tex" do (',
-        '                local prefix = substring s 1 (s.count - 4)',
-        '                setProperty target ((prefix + "_input_type") as name) 2',
-        '            )',
-        '        ) catch ()',
-        "    )",
-        ")",
-        "fn mcp_createOpenPbrPreferred matName = (",
-        "    local m = undefined",
-        "    try (m = OpenPBRMaterial name:matName) catch ()",
-        "    if m == undefined do try (m = OpenPBR_Material name:matName) catch ()",
-        "    if m == undefined do try (m = OpenPBR_Mtl name:matName) catch ()",
-        "    if m == undefined do try (m = PhysicalMaterial name:matName) catch ()",
-        '    if m == undefined do throw "OpenPBRMaterial/OpenPBR_Material/OpenPBR_Mtl/PhysicalMaterial are unavailable"',
-        "    m",
-        ")",
+    lines = list(_pbr_helpers_preamble_lines())
+    lines.extend([
         "local loaded = #()",
+        "local libraryLoaded = #()",
         "local classes = #()",
         "local errors = #()",
         f"local slotIndex = {start_slot}",
-    ]
-
-    if renderer == "materialx":
-        lines.extend([
-            "fn mcp_materialXOslRoot = (",
-            "    local roots = #(",
-            '        "C:\\\\ProgramData\\\\Autodesk\\\\ApplicationPlugins\\\\USD for 3ds Max 2027\\\\Contents\\\\MaterialX_plugin\\\\Contents\\\\OSL\\\\MaterialX",',
-            '        "C:\\\\ProgramData\\\\Autodesk\\\\ApplicationPlugins\\\\USD for 3ds Max 2026\\\\Contents\\\\MaterialX_plugin\\\\Contents\\\\OSL\\\\MaterialX",',
-            '        "C:\\\\ProgramData\\\\Autodesk\\\\ApplicationPlugins\\\\USD for 3ds Max 2025\\\\Contents\\\\MaterialX_plugin\\\\Contents\\\\OSL\\\\MaterialX"',
-            "    )",
-            '    for root in roots where doesFileExist (root + "\\\\tiledimage_color3.osl") do return root',
-            '    throw "USD MaterialX OSL nodes are unavailable. Expected tiledimage_color3.osl under ProgramData Autodesk ApplicationPlugins."',
-            ")",
-            "fn mcp_materialXOslPath fileName = (",
-            "    local path = (mcp_materialXOslRoot()) + \"\\\\\" + fileName",
-            '    if not (doesFileExist path) do throw ("MaterialX OSL file is unavailable: " + path)',
-            "    path",
-            ")",
-            "fn mcp_makeMaterialXOslMap fileName nodeName = (",
-            "    local m = OSLMap()",
-            "    m.name = nodeName",
-            "    m.OSLPath = mcp_materialXOslPath fileName",
-            "    m.OSLAutoUpdate = true",
-            "    m",
-            ")",
-        ])
-
-    if renderer != "materialx" and not is_octane and any("orm" in group["channels"] for group in groups):
-        lines.append('local oslPath = (getDir #maxRoot) + "OSL\\\\UberBitmap2.osl"')
+    ])
+    lines.extend(_pbr_renderer_setup_lines(
+        renderer,
+        needs_uberbitmap_osl=_pbr_groups_need_uberbitmap_osl(groups + library_groups, renderer),
+    ))
 
     if open_editor:
         lines.extend([
@@ -1707,349 +1583,19 @@ def _build_material_editor_pbr_palette_maxscript(
             "try (MatEditor.Open()) catch ()",
         ])
 
-    def add_wire(
-        mat_var: str,
-        slot_var: str,
-        channel_label: str,
-        tex_var: str,
-        candidates: list[str],
-    ) -> None:
-        lines.extend([
-            f"    local {slot_var} = mcp_setFirstMap {mat_var} {_ms_name_array(candidates)} {tex_var}",
-            f"    mcp_enableMapSlot {mat_var} {slot_var}",
-            f'    if {slot_var} != undefined then channelList += "{channel_label}->" + {slot_var} + ", " else skippedList += "{channel_label}, "',
-        ])
-
-    def add_bitmap(var: str, channel: str, fpath: Path) -> None:
-        path_literal = safe_string(_ms_path(fpath))
-        tex_name = safe_string(fpath.stem)
-        if renderer == "materialx":
-            is_color = channel in _COLOR_CHANNELS
-            file_name = "tiledimage_vector3.osl" if channel == "normal" else (
-                "tiledimage_color3.osl" if is_color else "tiledimage_float.osl"
-            )
-            colorspace = "srgb_texture" if is_color else ""
-            lines.extend([
-                f'    local {var} = mcp_makeMaterialXOslMap "{file_name}" "{tex_name}"',
-                f'    {var}.file = @"{path_literal}"',
-                f'    {var}.file_colorspace = "{colorspace}"',
-            ])
-            if channel == "normal":
-                lines.append(f"    {var}.default1 = [0.5, 0.5, 1.0]")
-        elif renderer == "arnold":
-            color_space = "sRGB" if channel in _COLOR_CHANNELS else "Raw"
-            lines.append(f'    local {var} = ai_image name:"{tex_name}" filename:@"{path_literal}" color_space:"{color_space}"')
-        elif is_octane:
-            # Leave colorSpace at Octane's default (_OctaneBuildIn_LINEAR_sRGB).
-            # Other strings like "sRGB" or "_OctaneBuildIn_LINEAR" fall through to
-            # OCIO lookup and error when no OCIO config is loaded. The material's
-            # slot semantics (basecolor vs roughness vs metallic) drive how Octane
-            # interprets the texture data, not this string.
-            lines.append(f'    local {var} = Image_MTX()')
-            lines.append(f'    {var}.name = "{tex_name}"')
-            lines.append(f'    {var}.filename = @"{path_literal}"')
-        else:
-            lines.append(f'    local {var} = Bitmaptexture name:"{tex_name}" filename:@"{path_literal}"')
-
-    def add_orm_split(prefix: str, fpath: Path) -> dict[str, str]:
-        path_literal = safe_string(_ms_path(fpath))
-        tex_name = safe_string(fpath.stem)
-        uber = f"{prefix}_orm"
-        out_r = f"{prefix}_orm_r"
-        out_g = f"{prefix}_orm_g"
-        out_b = f"{prefix}_orm_b"
-        if renderer == "materialx":
-            lines.extend([
-                f'    local {uber} = mcp_makeMaterialXOslMap "tiledimage_color3.osl" "{tex_name}"',
-                f'    {uber}.file = @"{path_literal}"',
-                f'    {uber}.file_colorspace = ""',
-                f'    local {out_r} = mcp_makeMaterialXOslMap "extract_color3.osl" "{tex_name}_AO_R"',
-                f"    {out_r}.In_map = {uber}",
-                f"    {out_r}.index = 0",
-                f'    local {out_g} = mcp_makeMaterialXOslMap "extract_color3.osl" "{tex_name}_Roughness_G"',
-                f"    {out_g}.In_map = {uber}",
-                f"    {out_g}.index = 1",
-                f'    local {out_b} = mcp_makeMaterialXOslMap "extract_color3.osl" "{tex_name}_Metallic_B"',
-                f"    {out_b}.In_map = {uber}",
-                f"    {out_b}.index = 2",
-            ])
-            return {"ao": out_r, "roughness": out_g, "metallic": out_b}
-        if is_octane:
-            lines.extend([
-                f'    local {uber} = Image_MTX()',
-                f'    {uber}.name = "{tex_name}"',
-                f'    {uber}.filename = @"{path_literal}"',
-                f'    local {out_r} = Channel_picker()',
-                f'    {out_r}.name = "{tex_name}_AO_R"',
-                f'    {out_r}.texture_tex = {uber}',
-                f'    {out_r}.texture_input_type = 2',
-                f'    {out_r}.colorChannel = {_OCTANE_CH_R}',
-                f'    local {out_g} = Channel_picker()',
-                f'    {out_g}.name = "{tex_name}_Rough_G"',
-                f'    {out_g}.texture_tex = {uber}',
-                f'    {out_g}.texture_input_type = 2',
-                f'    {out_g}.colorChannel = {_OCTANE_CH_G}',
-                f'    local {out_b} = Channel_picker()',
-                f'    {out_b}.name = "{tex_name}_Metal_B"',
-                f'    {out_b}.texture_tex = {uber}',
-                f'    {out_b}.texture_input_type = 2',
-                f'    {out_b}.colorChannel = {_OCTANE_CH_B}',
-            ])
-            return {"ao": out_r, "roughness": out_g, "metallic": out_b}
-        lines.extend([
-            f"    local {uber} = OSLMap()",
-            f'    {uber}.name = "{tex_name}"',
-            f"    {uber}.OSLPath = oslPath",
-            f"    {uber}.OSLAutoUpdate = true",
-            f'    {uber}.filename = @"{path_literal}"',
-            f"    local {out_r} = MultiOutputChannelTexmapToTexmap()",
-            f"    {out_r}.sourceMap = {uber}",
-            f"    {out_r}.outputChannelIndex = {_UBER_OUT_R}",
-            f"    local {out_g} = MultiOutputChannelTexmapToTexmap()",
-            f"    {out_g}.sourceMap = {uber}",
-            f"    {out_g}.outputChannelIndex = {_UBER_OUT_G}",
-            f"    local {out_b} = MultiOutputChannelTexmapToTexmap()",
-            f"    {out_b}.sourceMap = {uber}",
-            f"    {out_b}.outputChannelIndex = {_UBER_OUT_B}",
-        ])
-        return {"ao": out_r, "roughness": out_g, "metallic": out_b}
-
     for idx, group in enumerate(groups, start=1):
         mat_name = safe_string(f"{material_prefix}{group['name']}")
         mat_var = f"mat_{idx}"
-        channels: dict[str, Path] = group["channels"]
-        map_vars: dict[str, str] = {}
 
         lines.append("try (")
-        if renderer in {"openpbr", "materialx"}:
-            lines.append(f'    local {mat_var} = mcp_createOpenPbrPreferred "{mat_name}"')
-        elif renderer == "physical":
-            lines.append(f'    local {mat_var} = PhysicalMaterial name:"{mat_name}"')
-        elif renderer == "arnold":
-            lines.append(f'    local {mat_var} = ai_standard_surface name:"{mat_name}"')
-        elif renderer == "redshift":
-            lines.append(f'    local {mat_var} = RS_Standard_Material name:"{mat_name}"')
-        elif renderer == "octane_standard":
-            lines.append(f'    local {mat_var} = Std_Surface_Mtl name:"{mat_name}"')
-        elif renderer == "octane_pbr":
-            lines.append(f'    local {mat_var} = Open_PBR_Surf__Mtl name:"{mat_name}"')
-        elif renderer == "octane_universal":
-            lines.append(f'    local {mat_var} = Universal_material name:"{mat_name}"')
-        else:
-            lines.append(f'    local {mat_var} = VRayMtl name:"{mat_name}"')
-            lines.append(f"    try ({mat_var}.brdf_useRoughness = true) catch ()")
-
-        lines.extend([
-            "    local channelList = \"\"",
-            "    local skippedList = \"\"",
-            f'    local specDefault = mcp_setFirstValue {mat_var} #("specular_color", "specularColor", "specular", "refl_color", "reflection") (color 255 255 255)',
-        ])
-
-        for channel, fpath in channels.items():
-            if channel == "orm":
-                for split_channel, split_var in add_orm_split(f"g{idx}", fpath).items():
-                    map_vars.setdefault(split_channel, split_var)
-            else:
-                var = f"g{idx}_{channel}"
-                add_bitmap(var, channel, fpath)
-                map_vars[channel] = var
-
-        ao_var = map_vars.get("ao")
-
-        slots = _PBR_SLOT_CANDIDATES[renderer]
-
-        if "diffuse" in map_vars:
-            diffuse_var = map_vars["diffuse"]
-            if ao_var:
-                if renderer == "materialx":
-                    comp_var = f"g{idx}_diffuse_ao"
-                    lines.extend([
-                        f'    local {comp_var} = mcp_makeMaterialXOslMap "multiply_color3FA.osl" "Diffuse_AO"',
-                        f"    {comp_var}.in1_map = {diffuse_var}",
-                        f"    {comp_var}.in2_map = {ao_var}",
-                    ])
-                elif renderer == "arnold":
-                    comp_var = f"g{idx}_diffuse_ao"
-                    lines.extend([
-                        f'    local {comp_var} = ai_multiply name:"Diffuse_AO"',
-                        f"    {comp_var}.input1_shader = {diffuse_var}",
-                        f"    {comp_var}.input2_shader = {ao_var}",
-                    ])
-                elif is_octane:
-                    # Multiply_MTX collapses color to greyscale regardless of
-                    # textureValueType. Multiply_texture preserves RGB.
-                    comp_var = f"g{idx}_diffuse_ao"
-                    lines.extend([
-                        f'    local {comp_var} = Multiply_texture()',
-                        f'    {comp_var}.name = "Diffuse_AO"',
-                        f"    {comp_var}.texture1_tex = {diffuse_var}",
-                        f"    {comp_var}.texture1_input_type = 2",
-                        f"    {comp_var}.texture2_tex = {ao_var}",
-                        f"    {comp_var}.texture2_input_type = 2",
-                    ])
-                else:
-                    comp_var = f"g{idx}_diffuse_ao"
-                    lines.extend([
-                        f"    local {comp_var} = CompositeTexturemap()",
-                        f'    {comp_var}.name = "Diffuse_AO"',
-                        f"    {comp_var}.mapList[1] = {diffuse_var}",
-                        f"    {comp_var}.mapList[2] = {ao_var}",
-                        f"    {comp_var}.blendMode[2] = 5",
-                    ])
-                add_wire(mat_var, f"slot_{idx}_diffuse", "diffuse(+ao)", comp_var, slots["diffuse"])
-            else:
-                add_wire(mat_var, f"slot_{idx}_diffuse", "diffuse", diffuse_var, slots["diffuse"])
-        elif "ao" in map_vars:
-            lines.append('    skippedList += "ao(no diffuse), "')
-
-        if "roughness" in map_vars:
-            add_wire(mat_var, f"slot_{idx}_roughness", "roughness", map_vars["roughness"], slots["roughness"])
-        elif "glossiness" in map_vars:
-            inv_var = f"g{idx}_gloss_to_rough"
-            if renderer == "materialx":
-                lines.extend([
-                    f'    local {inv_var} = mcp_makeMaterialXOslMap "invert_float.osl" "GlossToRough"',
-                    f"    {inv_var}.In_map = {map_vars['glossiness']}",
-                    f"    {inv_var}.amount = 1.0",
-                ])
-            elif is_octane:
-                lines.extend([
-                    f'    local {inv_var} = Invert_MTX()',
-                    f'    {inv_var}.name = "GlossToRough"',
-                    f"    {inv_var}.input_tex = {map_vars['glossiness']}",
-                    f"    {inv_var}.input_input_type = 2",
-                ])
-            else:
-                lines.extend([
-                    f'    local {inv_var} = Output name:"GlossToRough"',
-                    f"    {inv_var}.map1 = {map_vars['glossiness']}",
-                    f"    {inv_var}.output.invert = true",
-                ])
-            add_wire(mat_var, f"slot_{idx}_glossiness", "glossiness(inverted)", inv_var, slots["glossiness"])
-        elif "roughness" in map_vars:
-            add_wire(mat_var, f"slot_{idx}_roughness_orm", "roughness(orm)", map_vars["roughness"], slots["roughness"])
-
-        if "metallic" in map_vars:
-            add_wire(mat_var, f"slot_{idx}_metallic", "metallic", map_vars["metallic"], slots["metallic"])
-
-        if "normal" in map_vars:
-            if renderer == "materialx":
-                final_normal = f"g{idx}_normal_node"
-                lines.extend([
-                    f'    local {final_normal} = mcp_makeMaterialXOslMap "normalmap.osl" "NormalMap"',
-                    f"    {final_normal}.In_map = {map_vars['normal']}",
-                    f'    {final_normal}.space = "tangent"',
-                    f"    {final_normal}.scale = 1.0",
-                ])
-            elif renderer == "arnold":
-                normal_node = f"g{idx}_normal_node"
-                final_normal = normal_node
-                lines.extend([
-                    f'    local {normal_node} = ai_normal_map name:"NormalMap" input_shader:{map_vars["normal"]}',
-                ])
-                if "bump" in map_vars:
-                    bump_node = f"g{idx}_normal_bump_node"
-                    lines.extend([
-                        f'    local {bump_node} = ai_bump2d name:"NormalBump"',
-                        f"    {bump_node}.bump_map_shader = {map_vars['bump']}",
-                        f"    {bump_node}.normal_shader = {normal_node}",
-                    ])
-                    final_normal = bump_node
-            elif renderer == "redshift":
-                final_normal = f"g{idx}_normal_node"
-                lines.extend([
-                    f'    local {final_normal} = RS_BumpMap name:"NormalMap"',
-                    f"    {final_normal}.input_map = {map_vars['normal']}",
-                    f"    {final_normal}.inputType = 1",
-                ])
-            elif renderer == "vray":
-                final_normal = f"g{idx}_normal_node"
-                lines.extend([
-                    f'    local {final_normal} = VRayNormalMap name:"NormalMap"',
-                    f"    {final_normal}.normal_map = {map_vars['normal']}",
-                ])
-                if "bump" in map_vars:
-                    lines.append(f"    {final_normal}.bump_map = {map_vars['bump']}")
-            elif is_octane:
-                # Octane materials have both normal_tex and bump_tex slots; wire each directly.
-                # Bump is wired below in its own block when also present.
-                final_normal = map_vars['normal']
-            else:
-                final_normal = f"g{idx}_normal_node"
-                lines.extend([
-                    f'    local {final_normal} = Normal_Bump name:"NormalBump"',
-                    f"    {final_normal}.normal_map = {map_vars['normal']}",
-                ])
-                if "bump" in map_vars:
-                    lines.append(f"    {final_normal}.bump_map = {map_vars['bump']}")
-            add_wire(mat_var, f"slot_{idx}_normal", "normal", final_normal, slots["normal"])
-            if is_octane and "bump" in map_vars:
-                add_wire(mat_var, f"slot_{idx}_bump", "bump", map_vars["bump"], slots["bump"])
-        elif "bump" in map_vars:
-            if renderer == "materialx":
-                height_node = f"g{idx}_height_to_normal"
-                bump_node = f"g{idx}_bump_node"
-                lines.extend([
-                    f'    local {height_node} = mcp_makeMaterialXOslMap "heighttonormal_vector3.osl" "BumpHeightToNormal"',
-                    f"    {height_node}.In_map = {map_vars['bump']}",
-                    f"    {height_node}.scale = 1.0",
-                    f'    local {bump_node} = mcp_makeMaterialXOslMap "normalmap.osl" "BumpNormalMap"',
-                    f"    {bump_node}.In_map = {height_node}",
-                    f'    {bump_node}.space = "tangent"',
-                    f"    {bump_node}.scale = 1.0",
-                ])
-            elif renderer == "arnold":
-                bump_node = f"g{idx}_bump_node"
-                lines.extend([
-                    f'    local {bump_node} = ai_bump2d name:"Bump"',
-                    f"    {bump_node}.bump_map_shader = {map_vars['bump']}",
-                ])
-            elif renderer == "redshift":
-                bump_node = f"g{idx}_bump_node"
-                lines.extend([
-                    f'    local {bump_node} = RS_BumpMap name:"Bump"',
-                    f"    {bump_node}.input_map = {map_vars['bump']}",
-                    f"    {bump_node}.inputType = 0",
-                ])
-            elif renderer == "vray":
-                bump_node = map_vars["bump"]
-            elif is_octane:
-                bump_node = map_vars["bump"]
-            else:
-                bump_node = f"g{idx}_bump_node"
-                lines.extend([
-                    f'    local {bump_node} = Normal_Bump name:"Bump"',
-                    f"    {bump_node}.bump_map = {map_vars['bump']}",
-                ])
-            add_wire(mat_var, f"slot_{idx}_bump", "bump", bump_node, slots["bump"])
-
-        optional_channels = ("displacement", "opacity", "emission", "translucency", "specular")
-        if not include_displacement:
-            optional_channels = ("opacity", "emission", "translucency", "specular")
-
-        for channel in optional_channels:
-            if channel not in map_vars:
-                continue
-            candidates = slots.get(channel)
-            if not candidates:
-                lines.append(f'    skippedList += "{channel}, "')
-                continue
-            wire_var = map_vars[channel]
-            if channel == "displacement" and is_octane:
-                # Octane's displacement slot rejects raw Image_MTX; wrap in Texture_displacement.
-                td_var = f"g{idx}_disp_node"
-                lines.extend([
-                    f'    local {td_var} = Texture_displacement()',
-                    f'    {td_var}.name = "Displacement"',
-                    f'    {td_var}.texture_tex = {wire_var}',
-                    f'    {td_var}.texture_input_type = 2',
-                ])
-                wire_var = td_var
-            add_wire(mat_var, f"slot_{idx}_{channel}", channel, wire_var, candidates)
-
-        if "ior" in map_vars:
-            lines.append('    skippedList += "ior(no map slot), "')
-
+        lines.extend(_pbr_per_group_lines(
+            group,
+            idx=idx,
+            mat_var=mat_var,
+            mat_name=mat_name,
+            renderer=renderer,
+            include_displacement=include_displacement,
+        ))
         lines.extend([
             f"    try (medit.PutMtlToMtlEditor {mat_var} slotIndex) catch (meditMaterials[slotIndex] = {mat_var})",
             "    try (medit.SetActiveMtlSlot slotIndex true) catch (activeMeditSlot = slotIndex)",
@@ -2059,9 +1605,31 @@ def _build_material_editor_pbr_palette_maxscript(
             f') catch (append errors ("{mat_name}: " + (getCurrentException())))',
         ])
 
+    for idx, group in enumerate(library_groups, start=len(groups) + 1):
+        mat_name = safe_string(f"{material_prefix}{group['name']}")
+        mat_var = f"lib_{idx}"
+
+        lines.append("try (")
+        lines.extend(_pbr_per_group_lines(
+            group,
+            idx=idx,
+            mat_var=mat_var,
+            mat_name=mat_name,
+            renderer=renderer,
+            include_displacement=include_displacement,
+        ))
+        lines.extend([
+            f"    try (append currentMaterialLibrary {mat_var}) catch ()",
+            f'    append libraryLoaded ("lib: " + {mat_var}.name + " [" + channelList + "]")',
+            f"    appendIfUnique classes ((classOf {mat_var}) as string)",
+            f') catch (append errors ("{mat_name}: " + (getCurrentException())))',
+        ])
+
     lines.extend([
         f'local msg = "Loaded " + (loaded.count as string) + " grouped PBR material(s) into Material Editor slots using {renderer_label}"',
         'if loaded.count > 0 do msg += " [" + loaded[1] + " .. " + loaded[loaded.count] + "]"',
+        'if libraryLoaded.count > 0 do msg += " | Library: " + (libraryLoaded.count as string) + " material(s)"',
+        'if libraryLoaded.count > 0 do msg += " [" + libraryLoaded[1] + " .. " + libraryLoaded[libraryLoaded.count] + "]"',
         'if classes.count > 0 do msg += " | Classes: " + (classes as string)',
         f'if {unmatched_count} > 0 do msg += " | Unmatched image(s) skipped: {unmatched_count}"',
         f'if {duplicate_count} > 0 do msg += " | Duplicate channel file(s) skipped: {duplicate_count}"',
@@ -2081,12 +1649,16 @@ def _palette_laydown_impl(
     texture_folder: str,
     start_slot: int = 1,
     max_slots: int = 24,
-    recursive: bool = False,
+    recursive: bool = True,
     open_editor: bool = True,
     material_prefix: str = "tex_",
     slot_content: str = "material",
     material_class: str = "",
     include_displacement: bool = True,
+    name_pattern: str = "",
+    sample_mode: str = "first",
+    overflow_mode: str = "truncate",
+    random_seed: int | None = None,
 ) -> str:
     """Load image files from a folder into Compact Material Editor sample slots.
 
@@ -2103,6 +1675,18 @@ def _palette_laydown_impl(
     roughness), and flip each material slot's *_input_type to 2 so the texture
     actually drives the channel. include_displacement=False skips wiring
     height/displacement maps in grouped PBR mode.
+
+    sample_mode:
+        first — first items alphabetically from a flat folder scan (default).
+        random — random flat-folder selection (use random_seed for repeatability).
+        one_per_subfolder — first texture set / image from each immediate child
+            folder (Megascans/GSG-style libraries).
+        random_per_subfolder — one random set / image per child folder.
+
+    overflow_mode:
+        truncate — only fill up to max_slots (default).
+        palette_then_library — put max_slots in Compact palette; overflow goes to
+            currentMaterialLibrary for browsing/assignment.
     """
     start_slot = max(1, min(24, int(start_slot)))
     max_slots = max(1, min(24 - start_slot + 1, int(max_slots)))
@@ -2124,93 +1708,266 @@ def _palette_laydown_impl(
             "or 'pbr_material' for grouped full PBR materials."
         )
 
+    try:
+        sample_mode_norm = normalize_sample_mode(sample_mode)
+        overflow_mode_norm = normalize_overflow_mode(overflow_mode)
+    except ValueError as exc:
+        return str(exc)
+
     renderer = _renderer_from_material_class(material_class)
     if slot_content == "pbr_material" and renderer is None:
-        return (
-            f"Unsupported material_class for grouped PBR palette: {material_class}. "
-            "Use OpenPBRMaterial, PhysicalMaterial, ai_standard_surface, RS_Standard_Material, "
-            "VRayMtl, MaterialX, Std_Surface_Mtl (octane_standard), Open_PBR_Surf__Mtl (octane_pbr), "
-            "or Universal_material (octane_universal)."
-        )
+        return unsupported_material_class_result(material_class, tool="palette_laydown")
 
-    files = _scan_material_editor_palette_files(texture_folder, recursive)
-    if not files:
-        return f"No image files found in: {texture_folder}"
+    filter_extra: dict[str, object] = {
+        "sample_mode": sample_mode_norm,
+        "overflow_mode": overflow_mode_norm,
+    }
+    if random_seed is not None:
+        filter_extra["random_seed"] = random_seed
+
+    unmatched_count = 0
+    duplicate_count = 0
+
+    if sample_mode_norm in {"one_per_subfolder", "random_per_subfolder"}:
+        picked, sub_meta, unmatched_count, duplicate_count = collect_one_sample_per_subfolder(
+            texture_folder,
+            recursive=recursive,
+            pick_random=sample_mode_norm == "random_per_subfolder",
+            random_seed=random_seed,
+            slot_content=slot_content,
+        )
+        filter_extra.update(sub_meta)
+        if not picked:
+            files = _scan_material_editor_palette_files(texture_folder, recursive)
+            if not files:
+                return f"No image files found in: {texture_folder}"
+            filter_extra["used_subfolder_sampling"] = False
+            filter_extra["subfolder_count"] = 0
+        elif slot_content == "pbr_material":
+            groups = picked
+        else:
+            files = picked
+            groups = None
+    else:
+        groups = None
+        files = _scan_material_editor_palette_files(texture_folder, recursive)
+        if not files:
+            return f"No image files found in: {texture_folder}"
 
     if slot_content == "pbr_material":
-        groups, unmatched, duplicates = _group_texture_files_for_pbr(files, _DEFAULT_CHANNEL_PATTERNS)
-        if not groups:
-            stems = [f.stem for f in files[:10]]
-            return f"No texture sets matched any PBR channel pattern. File stems: {stems}"
+        if groups is None:
+            groups, unmatched, duplicates = _group_texture_files_for_pbr(files, _DEFAULT_CHANNEL_PATTERNS)
+            unmatched_count += len(unmatched)
+            duplicate_count += len(duplicates)
+            if not groups:
+                stems = [f.stem for f in files[:10]]
+                return f"No texture sets matched any PBR channel pattern. File stems: {stems}"
 
-        selected_groups = groups[:max_slots]
+            if sample_mode_norm == "random":
+                import random as _random
+
+                rng = _random.Random(random_seed)
+                groups = list(groups)
+                rng.shuffle(groups)
+
+        groups, name_filtered = filter_by_name_pattern(
+            groups, name_pattern, key=lambda g: str(g["name"]),
+        )
+        if not groups:
+            return (
+                f"No texture sets matched name_pattern={name_pattern!r} "
+                f"({name_filtered} filtered out)"
+            )
+        if name_filtered:
+            filter_extra["name_pattern"] = name_pattern
+            filter_extra["name_filtered_out"] = name_filtered
+
+        palette_groups, library_groups = split_palette_and_library(
+            groups,
+            max_slots=max_slots,
+            overflow_mode=overflow_mode_norm,
+        )
+        filter_extra["palette_count"] = len(palette_groups)
+        filter_extra["library_count"] = len(library_groups)
+        if overflow_mode_norm == "truncate" and len(groups) > max_slots:
+            filter_extra["truncated"] = len(groups) - max_slots
+
         maxscript = f"""(
     try (
         {_build_material_editor_pbr_palette_maxscript(
-            selected_groups,
+            palette_groups,
             start_slot,
             open_editor,
             material_prefix,
             renderer or "openpbr",
             include_displacement=include_displacement,
-            unmatched_count=len(unmatched),
-            duplicate_count=len(duplicates),
+            unmatched_count=unmatched_count,
+            duplicate_count=duplicate_count,
+            library_groups=library_groups,
         )}
     ) catch (
         "Error: " + (getCurrentException())
     )
 )"""
         response = client.send_command(maxscript)
-        return response.get("result", "")
+        raw = response.get("result", "")
+        return wrap_material_tool_result(
+            str(raw),
+            material_class=material_class,
+            renderer=renderer or "openpbr",
+            tool="palette_laydown",
+            slot_content=slot_content,
+            **filter_extra,
+        )
 
-    selected = files[:max_slots]
+    if sample_mode_norm == "random":
+        import random as _random
+
+        rng = _random.Random(random_seed)
+        files = list(files)
+        rng.shuffle(files)
+
+    files, name_filtered = filter_by_name_pattern(
+        files, name_pattern, key=lambda p: p.stem,
+    )
+    if not files:
+        return (
+            f"No image files matched name_pattern={name_pattern!r} "
+            f"({name_filtered} filtered out)"
+        )
+    if name_filtered:
+        filter_extra["name_pattern"] = name_pattern
+        filter_extra["name_filtered_out"] = name_filtered
+
+    selected, library_files = split_palette_and_library(
+        files,
+        max_slots=max_slots,
+        overflow_mode=overflow_mode_norm,
+    )
+    filter_extra["palette_count"] = len(selected)
+    filter_extra["library_count"] = len(library_files)
+    if overflow_mode_norm == "truncate" and len(files) > max_slots:
+        filter_extra["truncated"] = len(files) - max_slots
+
     maxscript = f"""(
     try (
-        {_build_material_editor_palette_maxscript(selected, start_slot, open_editor, material_prefix, slot_content)}
+        {_build_material_editor_palette_maxscript(selected, start_slot, open_editor, material_prefix, slot_content, library_files=library_files)}
     ) catch (
         "Error: " + (getCurrentException())
     )
 )"""
     response = client.send_command(maxscript)
-    return response.get("result", "")
+    raw = response.get("result", "")
+    return {
+        "message": str(raw),
+        "slot_content": slot_content,
+        **filter_extra,
+        "hint": material_class_hint(
+            tool="palette_laydown",
+            applies_to="palette_laydown with slot_content=pbr_material for full PBR wiring",
+        ),
+        "supported_material_classes": material_class_hint(tool="palette_laydown")[
+            "supported_material_classes"
+        ],
+    }
+
+
+def _pbr_maxscript_for_matched(
+    matched: dict[str, Path],
+    material_name: str,
+    renderer: str,
+) -> str:
+    """Return a PBR builder MAXScript block for *renderer* (no assignment)."""
+    if renderer == "openpbr":
+        return _build_openpbr_maxscript(matched, material_name, None)
+    if renderer == "arnold":
+        return _build_arnold_maxscript(matched, material_name, None)
+    if renderer == "redshift":
+        return _build_redshift_maxscript(matched, material_name, None)
+    if renderer == "physical":
+        return _build_physical_maxscript(matched, material_name, None)
+    if renderer in {"octane_standard", "octane_pbr", "octane_universal", "vray", "materialx"}:
+        return _build_shared_pbr_maxscript(matched, material_name, renderer, None)
+    return _build_openpbr_maxscript(matched, material_name, None)
 
 
 @mcp.tool()
 def create_shell_material(
     shell_name: str,
-    render_material_name: str,
-    base_color_path: str,
-    orm_path: str,
-    normal_path: str = "",
-    gltf_material_name: str = "",
+    render_material: str = "",
+    export_material: str = "",
     assign_to: StrList | None = None,
+    texture_folder: str = "",
+    render_material_class: str = "",
+    export_material_class: str = "",
+    render_slot: int = 0,
+    viewport_slot: int = 1,
 ) -> str:
-    """Create a Shell Material with UberBitmap-based Arnold render slot and glTF export slot."""
-    if client.native_available and gltf_material_name:
-        try:
-            payload = json.dumps({
-                "name": shell_name,
-                "render_material_name": render_material_name,
-                "base_color_path": base_color_path,
-                "orm_path": orm_path,
-                "normal_path": normal_path,
-                "gltf_material_name": gltf_material_name,
-                "assign_to": assign_to or [],
-            })
-            response = client.send_command(payload, cmd_type="native:create_shell_material")
-            return response.get("result", "{}")
-        except RuntimeError:
-            pass
+    """Wrap render + export materials in a Shell Material (dual pipeline).
 
-    maxscript = build_shell_maxscript(
+    **Wrap existing materials** — pass ``render_material`` and optionally
+    ``export_material`` (material names already in the scene).
+
+    **Build from textures** — pass ``texture_folder`` and ``render_material_class``
+    (any PBR class from tripback: OpenPBR, Physical, Arnold, Octane, etc.).
+    Optionally set ``export_material_class`` for a different export/viewport material;
+    defaults to the same class as the render side. Names default to
+    ``{shell_name}_render`` / ``{shell_name}_export`` unless overridden via
+    ``render_material`` / ``export_material``.
+    """
+    preface: list[str] = []
+    render_name = (render_material or "").strip()
+    export_name = (export_material or "").strip()
+
+    if texture_folder:
+        files = _scan_texture_folder(texture_folder)
+        if not files:
+            return f"No image files found in: {texture_folder}"
+        matched = _match_textures_to_channels(files, _DEFAULT_CHANNEL_PATTERNS)
+        if not matched:
+            stems = [f.stem for f in files[:10]]
+            return f"No textures matched any channel pattern. File stems: {stems}"
+
+        render_renderer = _renderer_from_material_class(render_material_class or "OpenPBRMaterial")
+        if render_renderer is None:
+            return unsupported_material_class_result(
+                render_material_class or "OpenPBRMaterial", tool="create_shell_material",
+            )
+        export_renderer = render_renderer
+        if export_material_class.strip():
+            export_renderer = _renderer_from_material_class(export_material_class)
+            if export_renderer is None:
+                return unsupported_material_class_result(
+                    export_material_class, tool="create_shell_material",
+                )
+
+        if not render_name:
+            render_name = f"{shell_name}_render"
+        if not export_name:
+            export_name = f"{shell_name}_export"
+
+        preface.extend(_extract_material_builder_body(
+            _pbr_maxscript_for_matched(matched, render_name, render_renderer),
+            mat_var="renderMat",
+        ))
+        preface.extend(_extract_material_builder_body(
+            _pbr_maxscript_for_matched(matched, export_name, export_renderer),
+            mat_var="exportMat",
+        ))
+    elif not render_name:
+        return (
+            "render_material is required when texture_folder is empty. "
+            "Pass existing material names to wrap, or texture_folder + render_material_class to build."
+        )
+
+    maxscript = build_shell_wrap_maxscript(
         shell_name=shell_name,
-        render_name=render_material_name,
-        base_color_path=base_color_path,
-        orm_path=orm_path,
-        normal_path=normal_path or None,
-        gltf_material_name=gltf_material_name or None,
+        render_material=render_name,
+        export_material=export_name,
         assign_to=assign_to,
-        create_export_material=not bool(gltf_material_name),
+        render_slot=render_slot,
+        viewport_slot=viewport_slot,
+        preface_lines=preface or None,
     )
 
     maxscript = f"""(

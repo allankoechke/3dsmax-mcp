@@ -10,8 +10,8 @@ class SessionContextTests(unittest.TestCase):
         with (
             patch("src.tools.bridge.get_bridge_status", return_value='{"connected": true}'),
             patch("src.tools.capabilities.get_plugin_capabilities", return_value='{"maxVersion": 2025}'),
-            patch("src.tools.snapshots.get_scene_snapshot", return_value='{"objectCount": 4}'),
-            patch("src.tools.snapshots.get_selection_snapshot", return_value='{"selected": 1, "objects": []}'),
+            patch("src.tools.session_context.run_overview", return_value='{"objectCount": 4}'),
+            patch("src.tools.session_context.run_selection", return_value='{"selected": 1, "objects": []}'),
         ):
             result = json.loads(get_session_context(max_roots=10, max_selection=5))
 

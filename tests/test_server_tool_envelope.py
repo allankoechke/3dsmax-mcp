@@ -10,10 +10,9 @@ class ServerToolEnvelopeTests(unittest.IsolatedAsyncioTestCase):
         payload = json.loads(meta["result"])
 
         self.assertEqual(payload["ok"], False)
-        self.assertEqual(payload["result"], None)
         self.assertIn("error", payload)
-        self.assertIn("transport", payload)
-        self.assertIn("elapsed_ms", payload)
+        self.assertNotIn("elapsed_ms", payload)
+        self.assertNotIn("result", payload)
 
 
 if __name__ == "__main__":

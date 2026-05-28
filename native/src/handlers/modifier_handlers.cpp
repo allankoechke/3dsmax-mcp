@@ -336,23 +336,41 @@ std::string NativeHandlers::MakeModifierUnique(const std::string& params, MCPBri
     });
 }
 
-// ── native:batch_modify (Pure SDK) ──────────────────────────
-std::string NativeHandlers::BatchModify(const std::string& params, MCPBridgeGUP* gup) {
+// ── native:set_modifier_property (Pure SDK) ─────────────────
+std::string NativeHandlers::SetModifierProperty(const std::string& params, MCPBridgeGUP* gup) {
     return gup->GetExecutor().ExecuteSync([&params]() -> std::string {
         json p = json::parse(params, nullptr, false);
-        std::string modClassName = p.value("modifier_class", "");
         std::string propName = p.value("property_name", "");
-        std::string propValue = p.value("property_value", "");
+        std::string modClassName = p.value("modifier_class", "");
+        std::string modName = p.value("modifier_name", "");
+        int modIndex = p.value("modifier_index", 0);
         auto names = p.value("names", std::vector<std::string>{});
         bool selectionOnly = p.value("selection_only", false);
+        std::string singleName = p.value("name", "");
 
-        if (modClassName.empty()) throw std::runtime_error("modifier_class is required");
         if (propName.empty()) throw std::runtime_error("property_name is required");
+        if (p.find("property_value") == p.end()) {
+            throw std::runtime_error("property_value is required");
+        }
+        std::string propValue;
+        if (p["property_value"].type() == json::value_t::string) {
+            propValue = p["property_value"].get<std::string>();
+        } else {
+            propValue = p["property_value"].dump();
+        }
+
+        if (modIndex <= 0 && modName.empty() && modClassName.empty()) {
+            throw std::runtime_error(
+                "Specify modifier_index, modifier_name, or modifier_class to choose a modifier");
+        }
+
+        if (!singleName.empty()) {
+            names.insert(names.begin(), singleName);
+        }
 
         Interface* ip = GetCOREInterface();
         TimeValue t = ip->GetTime();
 
-        // Collect target nodes
         std::vector<INode*> targets;
         if (!names.empty()) {
             for (const auto& n : names) {
@@ -364,13 +382,17 @@ std::string NativeHandlers::BatchModify(const std::string& params, MCPBridgeGUP*
             for (int i = 0; i < selCount; i++) {
                 targets.push_back(ip->GetSelNode(i));
             }
+        } else if (modIndex > 0 || !modName.empty()) {
+            throw std::runtime_error("Specify name, names, or selection_only to choose objects");
         } else {
             INode* root = ip->GetRootNode();
             CollectNodes(root, targets);
         }
 
-        // Find target modifier class name for comparison
-        std::wstring wModClass = Utf8ToWide(modClassName);
+        if (targets.empty()) throw std::runtime_error("No target objects found");
+
+        std::wstring wModClass = modClassName.empty() ? L"" : Utf8ToWide(modClassName);
+        json hits = json::array();
         int modCount = 0;
 
         ip->DisableSceneRedraw();
@@ -380,18 +402,39 @@ std::string NativeHandlers::BatchModify(const std::string& params, MCPBridgeGUP*
             if (!objRef || objRef->SuperClassID() != GEN_DERIVOB_CLASS_ID) continue;
 
             IDerivedObject* dobj = (IDerivedObject*)objRef;
-            for (int m = 0; m < dobj->NumModifiers(); m++) {
-                Modifier* mod = dobj->GetModifier(m);
-                if (!mod) continue;
+            const std::string nodeName = WideToUtf8(node->GetName());
 
-                // Compare class name
-                const MCHAR* cn = mod->ClassName().data();
-                if (_wcsicmp(cn, wModClass.c_str()) != 0) continue;
+            auto tryModifier = [&](Modifier* mod, int idx) {
+                if (!mod) return;
+                if (!modClassName.empty()) {
+                    const MCHAR* cn = mod->ClassName().data();
+                    if (_wcsicmp(cn, wModClass.c_str()) != 0) return;
+                }
+                if (!SetParamByName(mod, propName, propValue, t)) return;
 
-                // Set the property via IParamBlock2
-                if (SetParamByName(mod, propName, propValue, t)) {
-                    mod->NotifyDependents(FOREVER, PART_ALL, REFMSG_CHANGE);
-                    modCount++;
+                mod->NotifyDependents(FOREVER, PART_ALL, REFMSG_CHANGE);
+                modCount++;
+                hits.push_back({
+                    {"object", nodeName},
+                    {"modifier", WideToUtf8(mod->GetName(false).data())},
+                    {"index", idx + 1},
+                    {"class", WideToUtf8(mod->ClassName().data())},
+                });
+            };
+
+            if (modIndex > 0) {
+                int idx = modIndex - 1;
+                if (idx < dobj->NumModifiers()) {
+                    tryModifier(dobj->GetModifier(idx), idx);
+                }
+            } else if (!modName.empty()) {
+                int idx = FindModifierIndex(node, modName);
+                if (idx >= 0) {
+                    tryModifier(dobj->GetModifier(idx), idx);
+                }
+            } else {
+                for (int m = 0; m < dobj->NumModifiers(); m++) {
+                    tryModifier(dobj->GetModifier(m), m);
                 }
             }
         }
@@ -399,7 +442,17 @@ std::string NativeHandlers::BatchModify(const std::string& params, MCPBridgeGUP*
         ip->EnableSceneRedraw();
         ip->RedrawViews(t);
 
-        return "Modified " + std::to_string(modCount) + " " + modClassName +
-               " modifiers: " + propName + " = " + propValue;
+        if (modCount == 0) {
+            throw std::runtime_error(
+                "No modifiers updated — check object names, modifier target, and property name");
+        }
+
+        json out = {
+            {"modified", modCount},
+            {"property", propName},
+            {"value", propValue},
+            {"hits", hits},
+        };
+        return out.dump();
     });
 }
