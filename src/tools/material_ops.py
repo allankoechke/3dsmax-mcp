@@ -1173,7 +1173,7 @@ def _palette_laydown_impl(
         first — first items alphabetically from a flat folder scan (default).
         random — random flat-folder selection (use random_seed for repeatability).
         one_per_subfolder — first texture set / image from each immediate child
-            folder (Megascans/GSG-style libraries).
+            folder (one set per subfolder, asset-pack style).
         random_per_subfolder — one random set / image per child folder.
 
     overflow_mode:

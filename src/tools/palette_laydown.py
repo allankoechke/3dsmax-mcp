@@ -37,7 +37,7 @@ def palette_laydown(
         random — flat folder, random selection (use random_seed to repeat).
         one_per_subfolder — first texture set / image from each child folder.
         random_per_subfolder — one random set / image per child folder; good for
-            Megascans/Greyscalegorilla libraries with many material categories.
+            large asset libraries with many material categories (one per subfolder).
 
     overflow_mode:
         truncate — only fill up to max_slots (default).

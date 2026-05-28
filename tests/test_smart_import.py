@@ -78,7 +78,7 @@ class SmartImportHelperTests(unittest.TestCase):
         self.assertEqual([p.name for p in kept], ["a_LOD0.fbx", "plain.obj"])
         self.assertEqual([p.name for p in skipped], ["a_LOD1.fbx"])
 
-    def test_match_megascans_shared_albedo_and_lod_normal(self) -> None:
+    def test_match_shared_albedo_and_lod_normal(self) -> None:
         meshes = [Path("wmfiaaldw_LOD0.fbx")]
         textures = [
             Path("wmfiaaldw_4K_Albedo.jpg"),
@@ -233,7 +233,7 @@ class SmartImportToolTests(unittest.TestCase):
         groups = _match_textures_to_meshes(meshes, textures, _DEFAULT_CHANNEL_PATTERNS)
         self.assertIn("diffuse", groups[Path("container/containermesh.fbx")]["channels"])
 
-    def test_megascans_plant_var_mesh_matches_shared_atlas_textures(self) -> None:
+    def test_plant_var_mesh_matches_shared_atlas_textures(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "3dplant_flowering plant_xikkdhjja"
             (root / "Textures" / "Atlas").mkdir(parents=True)

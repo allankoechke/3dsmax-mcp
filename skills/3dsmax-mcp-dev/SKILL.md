@@ -114,7 +114,7 @@ Debugging:
 
 - `set_modifier_property`: `name` + `modifier_index` (1-based) for one modifier; `modifier_class` + `names` for batch. Inspect with `inspect_properties(target="modifier")` first.
 - `smart_import`: default `lod_filter="lod0"`. Shared maps match on asset id; variant meshes in a bundle folder with `Textures/` share one material key — omit `name_pattern` for all variants.
-- `palette_laydown`: `sample_mode="random_per_subfolder"` for Megascans/GSG libraries; `overflow_mode="palette_then_library"` when more than 24 picks.
+- `palette_laydown`: `sample_mode="random_per_subfolder"` for large per-subfolder asset libraries; `overflow_mode="palette_then_library"` when more than 24 picks.
 - `scatter_forest_pack`: needs non-zero `widthlist`/`heightlist` per geometry item. Hide source meshes after scatter.
 - `add_data_channel`: reuses first DC modifier by default; `create_new=true` for a second stack entry.
 - `get_material_slots`: prefer `slot_scope="map"` unless you need every param (`slot_scope="all"` + `include_values:true` is huge on Arnold/Physical).

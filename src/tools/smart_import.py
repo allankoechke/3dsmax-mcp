@@ -535,13 +535,13 @@ def smart_import(
         Where to look for textures to wire to the imported meshes. Defaults to *folder*
         when empty. Textures are matched by longest-stem-prefix against mesh stems and
         grouped by PBR channel using the same detection patterns as palette_laydown.
-        Megascans-style assets (``assetid_LOD0.fbx`` + ``assetid_4K_Albedo.jpg``) match
+        Shared-atlas assets (``assetid_LOD0.fbx`` + ``assetid_4K_Albedo.jpg``) match
         on the shared asset id; highest resolution map wins per channel. Per-asset
         folders with a generic mesh name (``mesh.fbx``) and a sibling ``tex/`` folder
         also match by co-location — no shared stem required.
     recursive:
-        Scan subfolders for meshes and textures (default true — Megascans-style
-        libraries store one asset per subfolder).
+        Scan subfolders for meshes and textures (default true — asset libraries
+        often store one asset per subfolder).
     material_class:
         Renderer for auto-built PBR materials. Pass any value from tripback
         ``supported_material_classes`` / ``hint.renderers`` — OpenPBR (default),
