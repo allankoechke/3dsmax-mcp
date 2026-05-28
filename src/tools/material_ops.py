@@ -1149,6 +1149,7 @@ def _palette_laydown_impl(
     material_class: str = "",
     include_displacement: bool = True,
     name_pattern: str = "",
+    exclude_pattern: str = "",
     sample_mode: str = "first",
     overflow_mode: str = "truncate",
     random_seed: int | None = None,
@@ -1265,15 +1266,17 @@ def _palette_laydown_impl(
                 rng.shuffle(groups)
 
         groups, name_filtered = filter_by_name_pattern(
-            groups, name_pattern, key=lambda g: str(g["name"]),
+            groups, name_pattern, key=lambda g: str(g["name"]), exclude=exclude_pattern,
         )
         if not groups:
             return (
-                f"No texture sets matched name_pattern={name_pattern!r} "
-                f"({name_filtered} filtered out)"
+                f"No texture sets matched name_pattern={name_pattern!r} / "
+                f"exclude_pattern={exclude_pattern!r} ({name_filtered} filtered out)"
             )
         if name_filtered:
             filter_extra["name_pattern"] = name_pattern
+            if exclude_pattern:
+                filter_extra["exclude_pattern"] = exclude_pattern
             filter_extra["name_filtered_out"] = name_filtered
 
         palette_groups, library_groups = split_palette_and_library(
@@ -1322,15 +1325,17 @@ def _palette_laydown_impl(
         rng.shuffle(files)
 
     files, name_filtered = filter_by_name_pattern(
-        files, name_pattern, key=lambda p: p.stem,
+        files, name_pattern, key=lambda p: p.stem, exclude=exclude_pattern,
     )
     if not files:
         return (
-            f"No image files matched name_pattern={name_pattern!r} "
-            f"({name_filtered} filtered out)"
+            f"No image files matched name_pattern={name_pattern!r} / "
+            f"exclude_pattern={exclude_pattern!r} ({name_filtered} filtered out)"
         )
     if name_filtered:
         filter_extra["name_pattern"] = name_pattern
+        if exclude_pattern:
+            filter_extra["exclude_pattern"] = exclude_pattern
         filter_extra["name_filtered_out"] = name_filtered
 
     selected, library_files = split_palette_and_library(

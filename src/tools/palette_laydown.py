@@ -15,6 +15,7 @@ def palette_laydown(
     material_class: str = "",
     include_displacement: bool = True,
     name_pattern: str = "",
+    exclude_pattern: str = "",
     sample_mode: str = "first",
     overflow_mode: str = "truncate",
     random_seed: int | None = None,
@@ -28,8 +29,12 @@ def palette_laydown(
     Redshift, V-Ray, MaterialX, Octane variants, etc.
     include_displacement controls whether height/displacement maps are wired in
     grouped PBR mode.
-    name_pattern: optional glob on texture-set / filename stems (e.g. ``*wood*``).
-    Empty imports the first ``max_slots`` items alphabetically.
+    name_pattern: optional include glob(s) on texture-set / filename stems,
+    comma-separated (e.g. ``*wood*`` or ``oak_*,birch_*``). Empty imports the
+    first ``max_slots`` items alphabetically.
+    exclude_pattern: optional exclude glob(s) on the same stems (comma-separated);
+    anything matching is skipped even if it matched name_pattern — the
+    "don't lay that down" filter (e.g. ``*_preview*`` or ``*atlas*,*lowpoly*``).
     recursive scans subfolders (default true).
 
     sample_mode:
@@ -57,6 +62,7 @@ def palette_laydown(
         material_class=material_class,
         include_displacement=include_displacement,
         name_pattern=name_pattern,
+        exclude_pattern=exclude_pattern,
         sample_mode=sample_mode,
         overflow_mode=overflow_mode,
         random_seed=random_seed,

@@ -522,6 +522,7 @@ def smart_import(
     grid_spacing: float = 200.0,
     lod_filter: str = "lod0",
     name_pattern: str = "",
+    exclude_pattern: str = "",
 ) -> str:
     """Batch-import 3D meshes from a folder, auto-assigning materials by stem matching.
 
@@ -556,8 +557,13 @@ def smart_import(
         ``lod0`` (default) — import only ``*_LOD0`` meshes; skip ``*_LOD1+``; meshes
         without a LOD suffix are kept. ``all`` — import every LOD file found.
     name_pattern:
-        Optional glob on mesh filename stems (case-insensitive). Examples:
-        ``*wood*``, ``oak_*``, ``*_LOD0``. Empty or ``*`` imports every mesh.
+        Optional include glob(s) on mesh filename stems (case-insensitive).
+        Comma-separated for several, e.g. ``*wood*``, ``oak_*,birch_*``, ``*_LOD0``.
+        Empty or ``*`` imports every mesh.
+    exclude_pattern:
+        Optional exclude glob(s) on mesh stems (case-insensitive, comma-separated).
+        Anything matching is skipped even if it also matched name_pattern — e.g.
+        ``*_broken*`` or ``*debris*,*lowpoly*``. The "don't import that" filter.
 
     Dedup: a mesh file is skipped if any scene object's name starts with its stem.
     """
@@ -581,12 +587,12 @@ def smart_import(
         )
 
     mesh_paths, name_filtered = filter_by_name_pattern(
-        mesh_paths, name_pattern, key=lambda p: p.stem,
+        mesh_paths, name_pattern, key=lambda p: p.stem, exclude=exclude_pattern,
     )
     if not mesh_paths:
         return (
-            f"No mesh files matched name_pattern={name_pattern!r} "
-            f"({name_filtered} filtered out)"
+            f"No mesh files matched name_pattern={name_pattern!r} / "
+            f"exclude_pattern={exclude_pattern!r} ({name_filtered} filtered out)"
         )
 
     tex_root = Path(texture_folder) if texture_folder else root
@@ -647,6 +653,8 @@ def smart_import(
         extra["lod_skipped"] = len(lod_skipped)
     if name_filtered:
         extra["name_pattern"] = name_pattern
+        if exclude_pattern:
+            extra["exclude_pattern"] = exclude_pattern
         extra["name_filtered_out"] = name_filtered
     return wrap_material_tool_result(
         str(result),
