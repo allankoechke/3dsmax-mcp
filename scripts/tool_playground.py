@@ -36,7 +36,12 @@ RISK_LABEL = {
 
 def ensure_catalog() -> dict[str, Any]:
     if not CATALOG_PATH.exists() or _catalog_needs_refresh():
-        subprocess.check_call([sys.executable, str(GEN_CATALOG)], cwd=str(ROOT))
+        subprocess.check_call(
+            [sys.executable, str(GEN_CATALOG)],
+            cwd=str(ROOT),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     return json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
 
 

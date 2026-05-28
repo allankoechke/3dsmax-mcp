@@ -1,7 +1,7 @@
 # 3dsmax-mcp — 1.0.0 Release Checklist
 
-**Current version:** `0.8.5` (see `pyproject.toml`)  
-**Target:** `1.0.0` — first stable, production-trustworthy release  
+**Released:** `1.0.0` (see `pyproject.toml`, `CHANGELOG.md`)  
+**Tag:** `v1.0.0`  
 **Last updated:** 2026-05-28
 
 Use this document only for release gating. Do not fold it into README.
@@ -75,11 +75,11 @@ Prebuilt GUPs live in `native/bin/mcp_bridge_20XX.gup`.
 
 | Max year | Build | Install | Smoke read | Notes |
 |----------|-------|---------|------------|-------|
-| 2023     | [ ]   | [ ]     | [ ]        |       |
-| 2024     | [ ]   | [ ]     | [ ]        |       |
-| 2025     | [ ]   | [ ]     | [ ]        |       |
-| 2026     | [ ]   | [ ]     | [ ]        |       |
-| 2027     | [ ]   | [ ]     | [ ]        | C++20 |
+| 2023     | [x]   | [ ]     | [ ]        | prebuilt in repo |
+| 2024     | [x]   | [ ]     | [ ]        | prebuilt in repo |
+| 2025     | [x]   | [ ]     | [ ]        | prebuilt in repo |
+| 2026     | [x]   | [ ]     | [ ]        | prebuilt in repo |
+| 2027     | [x]   | [ ]     | [ ]        | C++20, prebuilt in repo |
 
 - [ ] `gen_tool_registry.py` runs at build time; chat registry matches Python tools
 - [ ] `gen_tool_smoke.py` output committed or regenerated in CI before native build
@@ -171,11 +171,11 @@ uv run python -m pytest tests/ -q
 
 ## 8. Release mechanics
 
-- [ ] Version bumped: `pyproject.toml`, native `MCP_BRIDGE_VERSION` (via CMake), any install banners
-- [ ] CHANGELOG section for 1.0.0 (highlights + breaking changes if any)
-- [ ] Git tag `v1.0.0`
-- [ ] GitHub release with:
-  - [ ] Prebuilt GUP binaries per supported Max year OR build instructions
+- [x] Version bumped: `pyproject.toml`, native `MCP_BRIDGE_VERSION` (via CMake), install banner
+- [x] CHANGELOG section for 1.0.0 (highlights + breaking changes if any)
+- [x] Git tag `v1.0.0`
+- [ ] GitHub release (draft) with:
+  - [x] Prebuilt GUP binaries per supported Max year OR build instructions
   - [ ] MCP client config example
   - [ ] Link to this checklist (archived pass results)
 - [ ] README accurate enough for first-time install (separate doc pass OK post-checklist)

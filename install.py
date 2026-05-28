@@ -11,6 +11,7 @@ Skip skill install: uv run python install.py --skip-skill
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -48,6 +49,12 @@ MS_AUTOSTART = ROOT / "maxscript" / "startup" / "mcp_autostart.ms"
 CONFIG_SRC = ROOT / "mcp_config.ini"
 CONFIG_DIR = Path(os.environ.get("LOCALAPPDATA", "")) / "3dsmax-mcp"
 CONFIG_DST = CONFIG_DIR / "mcp_config.ini"
+
+
+def pkg_version() -> str:
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    return match.group(1) if match else "0.0.0"
 
 # v0.7.0 standalone chat — .env for the API key, SKILL.md for the system prompt.
 ENV_SRC = ROOT / ".env.example"
@@ -310,7 +317,7 @@ def main():
     args = parse_args()
 
     print("=" * 60)
-    print("  3dsmax-mcp installer")
+    print(f"  3dsmax-mcp installer v{pkg_version()}")
     print("=" * 60)
 
     # Find Max
