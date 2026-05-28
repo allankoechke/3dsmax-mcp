@@ -196,7 +196,9 @@ MCP resources: `resource://3dsmax-mcp/plugins/{name}/manifest|guide|recipes|gotc
 | `get_state_sets` | State Sets with camera assignments |
 | `get_camera_sequence` | Camera-assigned State Sets sorted by frame |
 
-### Data Channel
+> **Work in progress** — the plugin and layout integrations below (Data Channel, tyFlow, Forest Pack, RailClone, Floor plan) are early-stage and may be incomplete or change between releases. Everything listed above is stable.
+
+### Data Channel (WIP)
 
 | Tool | Description |
 |------|-------------|
@@ -207,7 +209,7 @@ MCP resources: `resource://3dsmax-mcp/plugins/{name}/manifest|guide|recipes|gotc
 | `list_dc_presets` | List available presets |
 | `load_dc_preset` | Load a preset into the stack |
 
-### tyFlow
+### tyFlow (WIP)
 
 | Tool | Description |
 |------|-------------|
@@ -226,19 +228,19 @@ MCP resources: `resource://3dsmax-mcp/plugins/{name}/manifest|guide|recipes|gotc
 | `get_tyflow_particles` | Particle data rows |
 | `reset_tyflow_simulation` | Reset one or all tyFlow sims |
 
-### Forest Pack
+### Forest Pack (WIP)
 
 | Tool | Description |
 |------|-------------|
 | `scatter_forest_pack` | Create a Forest Pack scatter with surfaces and source geometry |
 
-### RailClone
+### RailClone (WIP)
 
 | Tool | Description |
 |------|-------------|
 | `get_railclone_style_graph` | Read style-editor bases, segments, and parameters |
 
-### Floor plan
+### Floor plan (WIP)
 
 | Tool | Description |
 |------|-------------|
