@@ -223,6 +223,39 @@ def build_skills(skip_skill: bool = False) -> bool:
         return False
 
 
+def mcp_server_entry(repo_dir: str) -> dict:
+    return {"command": "uv", "args": ["run", "--directory", repo_dir, "3dsmax-mcp"]}
+
+
+def app_mcp_config_paths() -> list[tuple[str, Path]]:
+    return [
+        ("Claude Desktop", Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json"),
+        ("Gemini", Path.home() / ".gemini" / "settings.json"),
+        ("Cursor", Path.home() / ".cursor" / "mcp.json"),
+    ]
+
+
+def register_app_mcp_configs(repo_dir: str) -> None:
+    entry = mcp_server_entry(repo_dir)
+    for label, config_path in app_mcp_config_paths():
+        try:
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            print(f"  SKIP: {label} (cannot create {config_path.parent})")
+            continue
+        try:
+            config = json.loads(config_path.read_text("utf-8")) if config_path.exists() else {}
+        except Exception:
+            config = {}
+        servers = config.setdefault("mcpServers", {})
+        if servers.get("3dsmax-mcp") != entry:
+            servers["3dsmax-mcp"] = entry
+            config_path.write_text(json.dumps(config, indent=2) + "\n", "utf-8")
+            print(f"  OK: {label} ({config_path})")
+        else:
+            print(f"  Already up to date: {label}")
+
+
 def register_agents() -> bool:
     print(f"\n[5/5] Agent registration")
     dir_str = str(ROOT)
@@ -237,7 +270,7 @@ def register_agents() -> bool:
         print("  No agents found on PATH (claude, codex, gemini)")
         print("  Manual registration:")
         print(f'    claude mcp add --scope user 3dsmax-mcp -- uv run --directory "{dir_str}" 3dsmax-mcp')
-        return True
+        print(f'    Cursor: {Path.home() / ".cursor" / "mcp.json"} (updated below if writable)')
 
     for agent in agents:
         # Each agent CLI has different syntax
@@ -256,26 +289,8 @@ def register_agents() -> bool:
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             print(f"  SKIP: {agent} (run manually: {cmd})")
 
-    # App configs that store mcpServers (Claude Desktop, Gemini)
-    app_configs = [
-        ("Claude Desktop", Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json"),
-        ("Gemini", Path.home() / ".gemini" / "settings.json"),
-    ]
-    entry = {"command": "uv", "args": ["run", "--directory", dir_str, "3dsmax-mcp"]}
-    for label, config_path in app_configs:
-        if not config_path.parent.exists():
-            continue
-        try:
-            config = json.loads(config_path.read_text("utf-8")) if config_path.exists() else {}
-        except Exception:
-            config = {}
-        servers = config.setdefault("mcpServers", {})
-        if servers.get("3dsmax-mcp") != entry:
-            servers["3dsmax-mcp"] = entry
-            config_path.write_text(json.dumps(config, indent=2) + "\n", "utf-8")
-            print(f"  OK: {label} ({config_path})")
-        else:
-            print(f"  Already up to date: {label}")
+    # App configs that store mcpServers (Claude Desktop, Gemini, Cursor)
+    register_app_mcp_configs(dir_str)
 
     return True
 
