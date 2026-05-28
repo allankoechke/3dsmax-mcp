@@ -277,9 +277,10 @@ def _summarize(results: list[dict]) -> dict:
     dry = sum(1 for r in results if r.get("status") == "dry_run")
     return {
         "total": len([r for r in results if r.get("status") not in {"skipped", "dry_run"}]),
-        "passed": passed + dry,
+        "passed": passed,
         "failed": failed,
         "skipped": skipped,
+        "dryRun": dry,
         "results": results,
     }
 
@@ -303,6 +304,7 @@ def _run_full_smoke(include_skipped: bool, dry_run: bool) -> dict:
     combined["passed"] = native_report.get("passed", 0) + combined["pythonOnly"]["passed"]
     combined["failed"] = native_report.get("failed", 0) + combined["pythonOnly"]["failed"]
     combined["skipped"] = native_report.get("skipped", 0) + combined["pythonOnly"]["skipped"]
+    combined["dryRun"] = native_report.get("dryRun", 0) + combined["pythonOnly"]["dryRun"]
     return combined
 
 

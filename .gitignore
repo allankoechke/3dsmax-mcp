@@ -19,6 +19,10 @@ local/
 .env
 !.env.example
 
+# Live smoke run output (redirected stdout/stderr)
+smoke_out.json
+smoke_err.txt
+
 # Native C++ build artifacts (but ship the binary)
 native/build/
 native/build-*/

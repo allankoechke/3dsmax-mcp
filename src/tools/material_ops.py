@@ -1727,6 +1727,7 @@ def _palette_laydown_impl(
 
     unmatched_count = 0
     duplicate_count = 0
+    groups = None
 
     if sample_mode_norm in {"one_per_subfolder", "random_per_subfolder"}:
         picked, sub_meta, unmatched_count, duplicate_count = collect_one_sample_per_subfolder(

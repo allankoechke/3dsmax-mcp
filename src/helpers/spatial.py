@@ -128,7 +128,8 @@ def build_create_object_maxscript(
     param_fragment = f" {clean_params}" if clean_params else ""
     has_pos = pos is not None
     target_pos = _format_point(pos) if has_pos else "undefined"
-    pos_json = "null" if not has_pos else f"mcpVec3 {target_pos}"
+    # Interpolated inside a JSON string literal, so it must be final array text "[x,y,z]", not an mcpVec3 call.
+    pos_json = "null" if not has_pos else target_pos
     mode = normalize_pos_mode(pos_mode)
     type_literal = type
     type_lower = type.strip().lower()

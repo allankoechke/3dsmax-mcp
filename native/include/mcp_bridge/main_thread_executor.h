@@ -51,6 +51,8 @@ private:
 
     HWND hwnd_ = nullptr;
     ATOM wndclass_atom_ = 0;
+    // Set once in Initialize() (called on the Max main thread). Read-only after.
+    DWORD main_thread_id_ = 0;
 
     static thread_local bool tl_direct_mode_;
     static constexpr UINT WM_MCP_EXECUTE = WM_USER + 0x4D43;

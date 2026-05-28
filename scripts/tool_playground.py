@@ -33,6 +33,30 @@ RISK_LABEL = {
     "advanced": "ADVANCED · extra setup",
 }
 
+# Catalog example args use this placeholder for object-name params (see
+# gen_tool_catalog.example_for). The GUI resolves it against the live scene.
+OBJECT_PLACEHOLDER = "$first_object"
+
+
+def _contains_placeholder(value: Any) -> bool:
+    if isinstance(value, str):
+        return value == OBJECT_PLACEHOLDER
+    if isinstance(value, list):
+        return any(_contains_placeholder(v) for v in value)
+    if isinstance(value, dict):
+        return any(_contains_placeholder(v) for v in value.values())
+    return False
+
+
+def _substitute_placeholder(value: Any, target: str) -> Any:
+    if isinstance(value, str):
+        return target if value == OBJECT_PLACEHOLDER else value
+    if isinstance(value, list):
+        return [_substitute_placeholder(v, target) for v in value]
+    if isinstance(value, dict):
+        return {k: _substitute_placeholder(v, target) for k, v in value.items()}
+    return value
+
 
 def ensure_catalog() -> dict[str, Any]:
     if not CATALOG_PATH.exists() or _catalog_needs_refresh():
@@ -432,6 +456,31 @@ class ToolInspectorApp:
 
         return asyncio.run(_run())
 
+    def _first_scene_object(self) -> str | None:
+        """Name of an arbitrary scene object, or None if the scene is empty/unreachable."""
+        try:
+            env = self._call_tool("query_scene", {"action": "filter", "limit": 1})
+        except Exception:
+            return None
+        if not env.get("ok"):
+            return None
+        result = env.get("result")
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        if not isinstance(result, dict):
+            return None
+        objs = result.get("objects")
+        if isinstance(objs, list) and objs:
+            first = objs[0]
+            if isinstance(first, dict):
+                return first.get("name")
+            if isinstance(first, str):
+                return first
+        return None
+
     def _confirm_risk(self, tool: dict) -> bool:
         if tool["risk"] == "changes_scene":
             return messagebox.askyesno(
@@ -461,7 +510,16 @@ class ToolInspectorApp:
 
         def worker() -> None:
             try:
-                envelope = self._call_tool(name, arguments)
+                call_args = arguments
+                if _contains_placeholder(call_args):
+                    target = self._first_scene_object()
+                    if target is None:
+                        raise RuntimeError(
+                            f"Can't fill {OBJECT_PLACEHOLDER}: no objects in the Max scene. "
+                            "Create or select an object, or edit the args."
+                        )
+                    call_args = _substitute_placeholder(call_args, target)
+                envelope = self._call_tool(name, call_args)
                 tripback = format_tripback(name, envelope)
                 ok = bool(envelope.get("ok"))
                 summary = "OK" if ok else "FAILED"

@@ -405,7 +405,7 @@
     },
     {
       "name": "send_to_chat",
-      "description": "Send a message to the in-Max standalone chat and block until the turn",
+      "description": "Send a message to the in-Max standalone chat (WIP) and block until the turn completes.",
       "category": "Chat",
       "group": "Advanced",
       "module": "chat",
@@ -1535,7 +1535,7 @@
     },
     {
       "name": "create_shell_material",
-      "description": "Create a Shell Material with UberBitmap-based Arnold render slot and glTF export slot.",
+      "description": "Wrap render + export materials in a Shell Material (dual pipeline).",
       "category": "Materials",
       "group": "Materials",
       "module": "material_ops",
@@ -1545,19 +1545,10 @@
           "shell_name": {
             "type": "string"
           },
-          "render_material_name": {
+          "render_material": {
             "type": "string"
           },
-          "base_color_path": {
-            "type": "string"
-          },
-          "orm_path": {
-            "type": "string"
-          },
-          "normal_path": {
-            "type": "string"
-          },
-          "gltf_material_name": {
+          "export_material": {
             "type": "string"
           },
           "assign_to": {
@@ -1565,23 +1556,32 @@
             "items": {
               "type": "string"
             }
+          },
+          "texture_folder": {
+            "type": "string"
+          },
+          "render_material_class": {
+            "type": "string"
+          },
+          "export_material_class": {
+            "type": "string"
+          },
+          "render_slot": {
+            "type": "integer"
+          },
+          "viewport_slot": {
+            "type": "integer"
           }
         },
         "required": [
-          "shell_name",
-          "render_material_name",
-          "base_color_path",
-          "orm_path"
+          "shell_name"
         ]
       },
       "example": {
-        "shell_name": "",
-        "render_material_name": "",
-        "base_color_path": "",
-        "orm_path": ""
+        "shell_name": ""
       },
       "risk": "advanced",
-      "routing": "native:create_shell_material",
+      "routing": "maxscript",
       "starter": false
     },
     {
@@ -1709,6 +1709,18 @@
           },
           "include_displacement": {
             "type": "boolean"
+          },
+          "name_pattern": {
+            "type": "string"
+          },
+          "sample_mode": {
+            "type": "string"
+          },
+          "overflow_mode": {
+            "type": "string"
+          },
+          "random_seed": {
+            "type": "integer"
           }
         },
         "required": [
@@ -1953,6 +1965,12 @@
           },
           "grid_spacing": {
             "type": "number"
+          },
+          "lod_filter": {
+            "type": "string"
+          },
+          "name_pattern": {
+            "type": "string"
           }
         },
         "required": [
@@ -2992,7 +3010,7 @@
     },
     {
       "name": "add_data_channel",
-      "description": "Add a Data Channel modifier with a complete operator graph.",
+      "description": "Append operators to a Data Channel modifier's internal stack.",
       "category": "Data Channel",
       "group": "Specialty",
       "module": "data_channel",
@@ -3015,6 +3033,12 @@
             }
           },
           "display": {
+            "type": "boolean"
+          },
+          "modifier_index": {
+            "type": "integer"
+          },
+          "create_new": {
             "type": "boolean"
           }
         },
@@ -3044,7 +3068,7 @@
     },
     {
       "name": "add_dc_script_operator",
-      "description": "Add a Data Channel modifier with a MAXScript operator for custom per-vertex/face logic.",
+      "description": "Add a MAXScript operator to a Data Channel modifier's internal stack.",
       "category": "Data Channel",
       "group": "Specialty",
       "module": "data_channel",
@@ -3068,6 +3092,9 @@
           },
           "modifier_index": {
             "type": "integer"
+          },
+          "create_new": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -3127,7 +3154,7 @@
     },
     {
       "name": "load_dc_preset",
-      "description": "Load a Data Channel modifier preset onto an object.",
+      "description": "Load a Data Channel preset into the object's DC modifier internal stack.",
       "category": "Data Channel",
       "group": "Specialty",
       "module": "data_channel",
@@ -3139,6 +3166,12 @@
           },
           "preset_name": {
             "type": "string"
+          },
+          "modifier_index": {
+            "type": "integer"
+          },
+          "create_new": {
+            "type": "boolean"
           }
         },
         "required": [

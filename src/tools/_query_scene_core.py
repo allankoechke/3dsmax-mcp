@@ -178,17 +178,24 @@ def run_delta(client: MaxClient, capture: bool = False) -> str:
         _previous_snapshot = current
         return json.dumps({"baseline": True, "objectCount": len(current)})
 
-    prev_names = set(_previous_snapshot.keys())
-    curr_names = set(current.keys())
+    prev_handles = set(_previous_snapshot.keys())
+    curr_handles = set(current.keys())
 
-    added = [{"name": n, "class": current[n]["c"]} for n in sorted(curr_names - prev_names)]
-    removed = [{"name": n, "class": _previous_snapshot[n]["c"]} for n in sorted(prev_names - curr_names)]
+    added = sorted(
+        ({"name": current[h]["name"], "class": current[h]["c"]} for h in curr_handles - prev_handles),
+        key=lambda o: o["name"],
+    )
+    removed = sorted(
+        ({"name": _previous_snapshot[h]["name"], "class": _previous_snapshot[h]["c"]} for h in prev_handles - curr_handles),
+        key=lambda o: o["name"],
+    )
 
     modified = []
-    for name in sorted(curr_names & prev_names):
-        changes = _diff_objects(_previous_snapshot[name], current[name])
+    for h in curr_handles & prev_handles:
+        changes = _diff_objects(_previous_snapshot[h], current[h])
         if changes:
-            modified.append({"name": name, **changes})
+            modified.append({"name": current[h]["name"], **changes})
+    modified.sort(key=lambda o: o["name"])
 
     _previous_snapshot = current
 
@@ -366,6 +373,7 @@ def _overview_maxscript(max_roots: int) -> str:
 
 def _filter_summary_maxscript() -> str:
     return r"""(
+        local esc = MCP_Server.escapeJsonString
         local totalCount = objects.count
         local hiddenCount = 0
         local frozenCount = 0
@@ -389,12 +397,12 @@ def _filter_summary_maxscript() -> str:
         local classPairs = ""
         for i = 1 to classNames.count do (
             if i > 1 do classPairs += ","
-            classPairs += "\"" + classNames[i] + "\":" + (classMap[i] as string)
+            classPairs += "\"" + (esc classNames[i]) + "\":" + (classMap[i] as string)
         )
         local layerList = ""
         for i = 1 to layerNames.count do (
             if i > 1 do layerList += ","
-            layerList += "\"" + layerNames[i] + "\""
+            layerList += "\"" + (esc layerNames[i]) + "\""
         )
         "{\"totalObjects\":" + (totalCount as string) + \
         ",\"classCounts\":{" + classPairs + "}" + \
@@ -426,6 +434,7 @@ def _filter_list_maxscript(
 
     return (
         "(\n"
+        "    local esc = MCP_Server.escapeJsonString\n"
         "    local matched = #()\n"
         f"    for obj in objects where ({filter_expr}) do append matched obj\n"
         "    local totalMatched = matched.count\n"
@@ -438,16 +447,16 @@ def _filter_list_maxscript(
         "                       (obj.pos.y as string) + \",\" + \\\n"
         "                       (obj.pos.z as string) + \"]\"\n"
         '        local parentName = if obj.parent != undefined then obj.parent.name else ""\n'
-        '        local parentField = if parentName == "" then "null" else ("\\"" + parentName + "\\"") \n'
+        '        local parentField = if parentName == "" then "null" else ("\\"" + (esc parentName) + "\\"") \n'
         "        local entry = \"{\" + \\\n"
-        '            "\\"name\\":\\"" + obj.name + "\\"," + \\\n'
-        '            "\\"class\\":\\"" + ((classOf obj) as string) + "\\"," + \\\n'
+        '            "\\"name\\":\\"" + (esc obj.name) + "\\"," + \\\n'
+        '            "\\"class\\":\\"" + (esc ((classOf obj) as string)) + "\\"," + \\\n'
         '            "\\"position\\":" + posStr + "," + \\\n'
         '            "\\"parent\\":" + parentField + "," + \\\n'
         '            "\\"numChildren\\":" + (obj.children.count as string) + "," + \\\n'
         '            "\\"isHidden\\":" + (if obj.isHidden then "true" else "false") + "," + \\\n'
         '            "\\"isFrozen\\":" + (if obj.isFrozen then "true" else "false") + "," + \\\n'
-        '            "\\"layer\\":\\"" + obj.layer.name + "\\"" + \\\n'
+        '            "\\"layer\\":\\"" + (esc obj.layer.name) + "\\"" + \\\n'
         '        "}"\n'
         "        append arr entry\n"
         "    )\n"
@@ -558,7 +567,11 @@ def _capture_scene_state(client: MaxClient) -> dict:
             local matName = if obj.material != undefined then (esc obj.material.name) else ""
             local cn = esc ((classOf obj) as string)
             local hidden = if obj.isHidden then "true" else "false"
-            result += "\"" + (esc obj.name) + "\":{" + \
+            -- Key by node handle, not name: Max names aren't unique, and a name key
+            -- would collapse duplicate-named nodes into one entry (last wins).
+            local hkey = (getHandleByAnim obj) as string
+            result += "\"" + hkey + "\":{" + \
+                "\"name\":\"" + (esc obj.name) + "\"," + \
                 "\"c\":\"" + cn + "\"," + \
                 "\"p\":" + posStr + "," + \
                 "\"m\":\"" + matName + "\"," + \

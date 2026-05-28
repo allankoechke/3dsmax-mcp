@@ -10,6 +10,11 @@ MainThreadExecutor::~MainThreadExecutor() {
 }
 
 void MainThreadExecutor::Initialize() {
+    // Initialize() is called from GUP::Start on the Max main thread, so this is
+    // the thread that owns hwnd_ and pumps WM_MCP_EXECUTE. ExecuteSync uses it
+    // to detect re-entrant calls already on the main thread.
+    main_thread_id_ = GetCurrentThreadId();
+
     // Generate a per-process cookie before the window exists. std::random_device
     // on MSVC is non-deterministic. Reject 0 so we have a single sentinel value
     // any unauthenticated sender will fail against.
@@ -55,6 +60,14 @@ void MainThreadExecutor::Shutdown() {
 
 std::string MainThreadExecutor::ExecuteSync(
     std::function<std::string()> work, DWORD timeout_ms) {
+
+    // Already on the main thread (e.g. a macroscript action like the MCP Smoke
+    // button, or a handler that re-enters Dispatch). Posting to ourselves would
+    // block the only thread that can pump the message — a guaranteed deadlock
+    // until timeout. Run inline; we are already where the work needs to run.
+    if (main_thread_id_ != 0 && GetCurrentThreadId() == main_thread_id_) {
+        return work();
+    }
 
     // Direct mode: run on calling thread, skip main-thread roundtrip.
     // Used for read-only handlers on pipe worker threads.

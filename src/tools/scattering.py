@@ -67,8 +67,6 @@ def scatter_forest_pack(
     smax = float(scale_max)
     rmin = float(z_rotation_min)
     rmax = float(z_rotation_max)
-    source_w = max(0.001, float(source_width_cm))
-    source_h = max(0.001, float(source_height_cm))
     icon_cm = max(0.001, float(icon_size_cm))
     dens_x_cm = max(0.001, float(density_units_x_cm))
     dens_y_cm = max(0.001, float(density_units_y_cm))
@@ -132,6 +130,9 @@ def scatter_forest_pack(
                         local bb = nodeGetBoundingBox n n.transform
                         local dim = bb[2] - bb[1]
                         local footprint = amax dim.x dim.y
+                        -- Forest Pack silently drops items with 0 width/height; clamp degenerate (flat/point) bboxes.
+                        if footprint <= 0.0 do footprint = amax dim.x dim.y dim.z
+                        if footprint <= 0.0 do footprint = 1.0
                         append widthList footprint
                         append heightList footprint
                     )
