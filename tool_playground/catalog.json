@@ -1713,6 +1713,9 @@
           "name_pattern": {
             "type": "string"
           },
+          "exclude_pattern": {
+            "type": "string"
+          },
           "sample_mode": {
             "type": "string"
           },
@@ -1970,6 +1973,9 @@
             "type": "string"
           },
           "name_pattern": {
+            "type": "string"
+          },
+          "exclude_pattern": {
             "type": "string"
           }
         },
