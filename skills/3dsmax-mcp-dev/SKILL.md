@@ -122,6 +122,7 @@ Debugging:
 - Box: `width=X`, `length=Y`, `height=Z`.
 - `list_wireable_params` paths include `[#Parameters]` levels — pass through to `wire_params` as-is.
 - `create_shell_material`: `mcp_findMaterialByName` uses `sceneMaterials` — `getClassInstances Material` is invalid (Material is not a MAXClass).
+- `python -m src.server` runs as `__main__`; alias it to `src.server` before importing tool modules or `from ..server import mcp` creates a second empty FastMCP instance.
 
 ## MAXScript Pitfalls
 

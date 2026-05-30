@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from importlib import import_module
 from functools import lru_cache
 from pathlib import Path
@@ -11,6 +12,9 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 mcp = FastMCP("3dsmax-mcp")
 client = MaxClient()
+
+if __name__ == "__main__" and __spec__ is not None:
+    sys.modules.setdefault(__spec__.name, sys.modules[__name__])
 
 
 def _install_structured_tool_results() -> None:
