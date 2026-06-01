@@ -132,6 +132,7 @@ Debugging:
 - **`(getDir #temp)`** is Max temp, not OS temp
 - **.NET strings**: convert to MAXScript strings before string methods
 - Controller/wire paths: normalize display tokens like `[#Z Position]` to `[#z_position]`
+- TCP fallback is opt-in; prefer the native bridge, and if Max viewport interaction stutters while fallback is running, stop the fallback and use the native bridge path.
 
 ### OSL
 - Use `write_osl_shader` for file I/O and compilation

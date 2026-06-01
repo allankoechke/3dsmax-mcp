@@ -402,12 +402,6 @@ struct MCPServerStruct
 	fn onTick sender args =
 	(
 		if MCP_Server == undefined or not MCP_Server.isRunning then return()
-		if MCP_Server.nativeBridgeAvailable() then
-		(
-			format "MCP: Native bridge detected; stopping TCP fallback\n"
-			MCP_Server.stop()
-			return()
-		)
 
 		try
 		(
