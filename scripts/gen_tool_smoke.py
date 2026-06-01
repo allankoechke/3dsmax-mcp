@@ -38,6 +38,7 @@ SKIP_DEFAULT = {
     "search_max_files",
     "create_shell_material",
     "create_material_from_textures",
+    "replicate_material",
     "palette_laydown",
     "build_floor_plan",
     "scatter_forest_pack",
@@ -87,6 +88,8 @@ SKIP_DEFAULT = {
     "watch_scene",
     "discover_plugin_classes",
     "execute_maxscript",
+    # Compatibility aliases stay callable but are not part of the default smoke pass.
+    "inspect_modifier_properties",
 }
 
 # Explicit inputs — ${SMOKE_TARGET} / ${SMOKE_SPAWN} replaced at runtime.
@@ -108,6 +111,7 @@ CUSTOM: dict[str, dict] = {
     "inspect_track_view": {"name": SMOKE_TARGET, "depth": 2},
     "inspect_controller": {"name": SMOKE_TARGET, "param_path": "[#transform][#position][#x_position]"},
     "get_material_slots": {"name": SMOKE_TARGET, "slot_scope": "map"},
+    "inspect_material_network": {"name": SMOKE_TARGET, "depth": 2, "verify_files": False},
     "get_hierarchy": {"name": SMOKE_TARGET},
     "get_instances": {"name": SMOKE_TARGET},
     "get_dependencies": {"name": SMOKE_TARGET},

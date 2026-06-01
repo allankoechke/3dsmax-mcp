@@ -68,6 +68,8 @@ static bool IsDirectHandler(const std::string& cmd_type) {
         // Material reads
         "native:get_materials",
         "native:get_material_slots",
+        "native:inspect_material_network",
+        "native:replicate_material_preview",
         // Scene query
         "native:find_objects_by_property",
         "native:get_instances",
@@ -348,6 +350,12 @@ std::string CommandDispatcher::Dispatch(
             result = NativeHandlers::GetDependencies(command, gup);
         } else if (cmd_type == "native:get_material_slots") {
             result = NativeHandlers::GetMaterialSlots(command, gup);
+        } else if (cmd_type == "native:inspect_material_network") {
+            result = NativeHandlers::InspectMaterialNetwork(command, gup);
+        } else if (cmd_type == "native:replicate_material") {
+            result = NativeHandlers::ReplicateMaterial(command, gup);
+        } else if (cmd_type == "native:replicate_material_preview") {
+            result = NativeHandlers::ReplicateMaterialPreview(command, gup);
         } else if (cmd_type == "native:write_osl_shader") {
             result = NativeHandlers::WriteOSLShader(command, gup);
         // Phase 4: Scene management
@@ -433,6 +441,8 @@ std::string CommandDispatcher::Dispatch(
             result = NativeHandlers::SetTextureMapProperties(command, gup);
         } else if (cmd_type == "native:set_sub_material") {
             result = NativeHandlers::SetSubMaterial(command, gup);
+        } else if (cmd_type == "native:replicate_material_apply") {
+            result = NativeHandlers::ReplicateMaterialApply(command, gup);
         // Controllers (extended)
         } else if (cmd_type == "native:assign_controller") {
             result = NativeHandlers::AssignController(command, gup);

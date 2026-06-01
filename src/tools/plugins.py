@@ -972,7 +972,7 @@ def inspect_plugin_constructor(class_name: str) -> str:
         post_create.append("Generic reflection cannot guarantee a safe constructor path for this class.")
 
     if category == "modifier":
-        recommended = ["add_modifier", "inspect_modifier_properties"]
+        recommended = ["add_modifier", "inspect_properties"]
     elif category in {"material", "texturemap"}:
         recommended = ["assign_material", "set_material_properties", "get_material_slots"]
     else:

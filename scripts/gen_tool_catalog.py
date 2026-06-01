@@ -37,6 +37,7 @@ MODULE_CATEGORY = {
     "modifiers": "Modifiers",
     "materials": "Materials",
     "material_ops": "Materials",
+    "material_network": "Material Network",
     "material_replace": "Materials",
     "palette_laydown": "Materials",
     "smart_import": "Smart Import",
@@ -71,6 +72,7 @@ CATEGORY_TO_GROUP: dict[str, str] = {
     "Modifiers": "Objects",
     "Organization": "Objects",
     "Materials": "Materials",
+    "Material Network": "Materials",
     "Smart Import": "Materials",
     "Inspect": "Inspect",
     "Plugins": "Inspect",
@@ -126,6 +128,12 @@ STARTER_TOOLS = [
     "get_materials",
     "get_bridge_status",
 ]
+
+HIDDEN_ALIAS_TOOLS = {
+    # Kept registered for compatibility; hidden from the manual playground to
+    # make inspect_properties(target="modifier") the single visible path.
+    "inspect_modifier_properties",
+}
 
 
 def example_for(name: str, schema: dict) -> dict:
@@ -201,6 +209,8 @@ def collect_tools() -> list[dict]:
             if not isinstance(node, ast.FunctionDef):
                 continue
             if not any(is_mcp_tool_decorator(d) for d in node.decorator_list):
+                continue
+            if node.name in HIDDEN_ALIAS_TOOLS:
                 continue
             if node.name in seen:
                 continue

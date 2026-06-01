@@ -44,6 +44,42 @@ static int GetEncoderClsid(const WCHAR* format, CLSID* pClsid) {
     return -1;
 }
 
+// ── Helper: resize bitmap in-place ownership to fit bounds ───
+static Gdiplus::Bitmap* ResizeBitmapToMax(Gdiplus::Bitmap* src, int maxWidth, int maxHeight) {
+    if (!src) return nullptr;
+
+    int srcW = (int)src->GetWidth();
+    int srcH = (int)src->GetHeight();
+    int outW = srcW;
+    int outH = srcH;
+    float scale = 1.0f;
+
+    if (maxWidth > 0 && srcW > maxWidth) {
+        float widthScale = (float)maxWidth / (float)srcW;
+        if (widthScale < scale) scale = widthScale;
+    }
+    if (maxHeight > 0 && srcH > maxHeight) {
+        float heightScale = (float)maxHeight / (float)srcH;
+        if (heightScale < scale) scale = heightScale;
+    }
+
+    if (scale >= 1.0f) return src;
+
+    outW = (int)((float)srcW * scale);
+    outH = (int)((float)srcH * scale);
+    if (outW < 1) outW = 1;
+    if (outH < 1) outH = 1;
+
+    Gdiplus::Bitmap* resized = new Gdiplus::Bitmap(outW, outH, PixelFormat24bppRGB);
+    Gdiplus::Graphics g(resized);
+    g.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    g.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHighQuality);
+    g.SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
+    g.DrawImage(src, 0, 0, outW, outH);
+    delete src;
+    return resized;
+}
+
 // ── Helper: capture current viewport as GDI+ Bitmap ─────────
 static Gdiplus::Bitmap* CaptureViewportDIB(ViewExp* vp) {
     GraphicsWindow* gw = vp->getGW();
@@ -120,6 +156,8 @@ static void DrawLabel(Gdiplus::Graphics& g, const wchar_t* text,
 std::string NativeHandlers::CaptureMultiView(const std::string& params, MCPBridgeGUP* gup) {
     return gup->GetExecutor().ExecuteSync([&params]() -> std::string {
         json p = json::parse(params, nullptr, false);
+        int maxWidth = p.value("max_width", 1600);
+        int maxHeight = p.value("max_height", 0);
 
         // Optional: custom views (default: front, right, back, top)
         auto viewNames = p.value("views", std::vector<std::string>{
@@ -233,8 +271,8 @@ std::string NativeHandlers::CaptureMultiView(const std::string& params, MCPBridg
         // Create stitched bitmap
         int stitchW = cols * vpWidth;
         int stitchH = rows * vpHeight;
-        Gdiplus::Bitmap stitched(stitchW, stitchH, PixelFormat24bppRGB);
-        Gdiplus::Graphics g(&stitched);
+        Gdiplus::Bitmap* stitched = new Gdiplus::Bitmap(stitchW, stitchH, PixelFormat24bppRGB);
+        Gdiplus::Graphics g(stitched);
         g.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
 
         // Fill with black
@@ -258,7 +296,11 @@ std::string NativeHandlers::CaptureMultiView(const std::string& params, MCPBridg
 
         CLSID pngClsid;
         GetEncoderClsid(L"image/png", &pngClsid);
-        stitched.Save(outPath.c_str(), &pngClsid, nullptr);
+        Gdiplus::Bitmap* outBmp = ResizeBitmapToMax(stitched, maxWidth, maxHeight);
+        outBmp->Save(outPath.c_str(), &pngClsid, nullptr);
+        int finalW = (int)outBmp->GetWidth();
+        int finalH = (int)outBmp->GetHeight();
+        delete outBmp;
 
         // Cleanup
         for (auto* b : captures) delete b;
@@ -266,8 +308,10 @@ std::string NativeHandlers::CaptureMultiView(const std::string& params, MCPBridg
         // Return path
         json result;
         result["file"] = WideToUtf8(outPath.c_str());
-        result["width"] = stitchW;
-        result["height"] = stitchH;
+        result["width"] = finalW;
+        result["height"] = finalH;
+        result["source_width"] = stitchW;
+        result["source_height"] = stitchH;
         result["views"] = viewNames;
         result["grid"] = std::to_string(cols) + "x" + std::to_string(rows);
         result["message"] = "Captured " + std::to_string(n) + " views (" +
@@ -291,6 +335,10 @@ static std::string SaveBitmapToTemp(Gdiplus::Bitmap* bmp, const wchar_t* filenam
 // ── native:capture_viewport ─────────────────────────────────
 std::string NativeHandlers::CaptureViewport(const std::string& params, MCPBridgeGUP* gup) {
     return gup->GetExecutor().ExecuteSync([&params]() -> std::string {
+        json p = json::parse(params, nullptr, false);
+        int maxWidth = p.value("max_width", 1600);
+        int maxHeight = p.value("max_height", 0);
+
         Interface* ip = GetCOREInterface();
         ip->ForceCompleteRedraw(FALSE);
 
@@ -298,15 +346,20 @@ std::string NativeHandlers::CaptureViewport(const std::string& params, MCPBridge
         Gdiplus::Bitmap* bmp = CaptureViewportDIB(&vp);
         if (!bmp) throw std::runtime_error("Failed to capture viewport DIB");
 
-        std::string path = SaveBitmapToTemp(bmp, L"3dsmax_viewport.png");
-        int w = bmp->GetWidth();
-        int h = bmp->GetHeight();
-        delete bmp;
+        int sourceW = (int)bmp->GetWidth();
+        int sourceH = (int)bmp->GetHeight();
+        Gdiplus::Bitmap* outBmp = ResizeBitmapToMax(bmp, maxWidth, maxHeight);
+        std::string path = SaveBitmapToTemp(outBmp, L"3dsmax_viewport.png");
+        int w = (int)outBmp->GetWidth();
+        int h = (int)outBmp->GetHeight();
+        delete outBmp;
 
         json result;
         result["file"] = path;
         result["width"] = w;
         result["height"] = h;
+        result["source_width"] = sourceW;
+        result["source_height"] = sourceH;
         return result.dump();
     });
 }

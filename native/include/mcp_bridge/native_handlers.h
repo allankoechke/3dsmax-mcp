@@ -47,6 +47,10 @@ namespace NativeHandlers {
     std::string GetDependencies(const std::string& params, MCPBridgeGUP* gup);
     std::string GetMaterialSlots(const std::string& params, MCPBridgeGUP* gup);
     std::string WriteOSLShader(const std::string& params, MCPBridgeGUP* gup);
+    std::string InspectMaterialNetwork(const std::string& params, MCPBridgeGUP* gup);
+    std::string ReplicateMaterial(const std::string& params, MCPBridgeGUP* gup);
+    std::string ReplicateMaterialPreview(const std::string& params, MCPBridgeGUP* gup);
+    std::string ReplicateMaterialApply(const std::string& params, MCPBridgeGUP* gup);
 
     // Phase 4: Scene management
     std::string SetParent(const std::string& params, MCPBridgeGUP* gup);

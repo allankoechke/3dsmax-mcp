@@ -12,7 +12,7 @@ from src.helpers.maxscript import safe_string
 
 @mcp.tool()
 def inspect_object(name: str) -> str:
-    """Get comprehensive properties of an object for exploration."""
+    """Get a deep exploratory object summary."""
     if client.native_available:
         try:
             payload = _json.dumps({"name": name})
@@ -235,7 +235,7 @@ def inspect_properties(
 
 @mcp.tool()
 def inspect_modifier_properties(name: str, modifier_index: int) -> str:
-    """Inspect all properties of a specific modifier on an object."""
+    """Compatibility alias for inspect_properties(target="modifier")."""
     return inspect_properties(name, target="modifier", modifier_index=modifier_index)
 
 

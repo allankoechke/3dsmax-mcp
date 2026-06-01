@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented here.
 
+## [1.0.5] — 2026-06-01
+
+Material-network release draft with the package version bumped to `1.0.5`.
+
+### Added
+
+- `inspect_material_network` for native semantic material graph reads: wired slots, nested maps, file manifests, health issues, and compact mode.
+- `replicate_material` for preview-first graph cloning, texture remapping, verification, and explicit apply.
+- Material-network tool catalog, smoke input coverage, in-Max chat registry entries, and user-facing docs/spec.
+
+### Changed
+
+- Viewport capture tools now return saved-file metadata by default, with `return_image=true` preserving inline image behavior.
+- Native viewport captures accept max dimensions and report source/final image sizes.
+- Tool surface is streamlined around `inspect_properties(target="modifier")`; `inspect_modifier_properties` remains as a compatibility alias but is hidden from the playground and default smoke pass.
+- `get_object_properties` and `inspect_object` descriptions now distinguish compact readback from deep exploratory inspection.
+
+### Fixed
+
+- Material replication now blocks missing source textures and non-texture graph dependencies unless explicitly allowed.
+- OSL shader source is no longer misclassified as a remappable file path; OSL file paths remain visible in inspection output.
+- Wired material slots are deduplicated in graph inspection output.
+
 ## [1.0.0] — 2026-05-28
 
 First stable release. Production-ready MCP bridge for 3ds Max 2023–2027 with prebuilt native plugins shipped in the repo.

@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+from typing import Any
 
 from mcp.server.fastmcp import Image
 
@@ -14,9 +15,40 @@ DEFAULT_MAX_WIDTH = 1600
 DEFAULT_MIN_WIDTH = 640
 
 
+def _normalize_path(path: str) -> str:
+    return path.replace("/", os.sep)
+
+
 def _read_image_bytes(path: str) -> bytes:
-    with open(path.replace("/", os.sep), "rb") as f:
+    with open(_normalize_path(path), "rb") as f:
         return f.read()
+
+
+def _image_file_result(
+    path: str,
+    *,
+    mime_type: str,
+    width: int | None = None,
+    height: int | None = None,
+    inline: bool = False,
+    image_format: str | None = None,
+) -> dict[str, Any] | Image:
+    normalized_path = _normalize_path(path)
+    if inline:
+        img_data = _read_image_bytes(path)
+        return Image(data=img_data, format=image_format or mime_type.rsplit("/", 1)[-1])
+
+    result: dict[str, Any] = {
+        "type": "image_file",
+        "file": normalized_path,
+        "mime_type": mime_type,
+        "size_bytes": os.path.getsize(normalized_path),
+    }
+    if width is not None:
+        result["width"] = int(width)
+    if height is not None:
+        result["height"] = int(height)
+    return result
 
 
 def _capture_viewport_to_file(capture_path: str) -> None:
@@ -85,19 +117,38 @@ def _capture_fullscreen_to_file(capture_path: str, max_width: int = 0, max_heigh
 
 
 @mcp.tool()
-def capture_viewport() -> Image:
-    """Capture the current 3ds Max viewport and return it as an image."""
+def capture_viewport(
+    max_width: int = DEFAULT_MAX_WIDTH,
+    max_height: int = 0,
+    return_image: bool = False,
+) -> Any:
+    """Capture the current 3ds Max viewport to a file and return compact metadata."""
+    max_width = max(0, int(max_width))
+    max_height = max(0, int(max_height))
+
     if client.native_available:
-        response = client.send_command(json.dumps({}), cmd_type="native:capture_viewport")
+        payload = json.dumps({"max_width": max_width, "max_height": max_height})
+        response = client.send_command(payload, cmd_type="native:capture_viewport")
         data = json.loads(response.get("result", "{}"))
         file_path = data.get("file", "")
         if file_path:
-            return Image(data=_read_image_bytes(file_path), format="png")
+            return _image_file_result(
+                file_path,
+                mime_type="image/png",
+                width=data.get("width"),
+                height=data.get("height"),
+                inline=return_image,
+                image_format="png",
+            )
 
     capture_path = os.path.join(COMMS_DIR, "viewport_capture.png").replace("\\", "/")
     _capture_viewport_to_file(capture_path)
-    img_data = _read_image_bytes(capture_path)
-    return Image(data=img_data, format="png")
+    return _image_file_result(
+        capture_path,
+        mime_type="image/png",
+        inline=return_image,
+        image_format="png",
+    )
 
 
 
@@ -108,8 +159,9 @@ def capture_screen(
     max_height: int = 0,
     max_bytes: int = DEFAULT_MAX_BYTES,
     min_width: int = DEFAULT_MIN_WIDTH,
-) -> Image:
-    """Capture fullscreen only when explicitly enabled."""
+    return_image: bool = False,
+) -> Any:
+    """Capture fullscreen to a file only when explicitly enabled."""
     if not enabled:
         raise ValueError("capture_screen is disabled by default; set enabled=True to allow fullscreen capture")
 
@@ -122,7 +174,14 @@ def capture_screen(
         data = json.loads(response.get("result", "{}"))
         file_path = data.get("file", "")
         if file_path:
-            return Image(data=_read_image_bytes(file_path), format="jpeg")
+            return _image_file_result(
+                file_path,
+                mime_type="image/jpeg",
+                width=data.get("width"),
+                height=data.get("height"),
+                inline=return_image,
+                image_format="jpeg",
+            )
 
     max_bytes = max(0, int(max_bytes))
     min_width = max(1, int(min_width))
@@ -145,22 +204,44 @@ def capture_screen(
             img_data = _read_image_bytes(capture_path)
             attempts += 1
 
-    return Image(data=img_data, format="jpeg")
+    if return_image:
+        return Image(data=img_data, format="jpeg")
+    return {
+        "type": "image_file",
+        "file": _normalize_path(capture_path),
+        "mime_type": "image/jpeg",
+        "size_bytes": len(img_data),
+    }
 
 
 @mcp.tool()
 def capture_multi_view(
     views: StrList | None = None,
-) -> Image:
-    """Capture multiple viewport angles and stitch into a single labeled grid image."""
+    max_width: int = DEFAULT_MAX_WIDTH,
+    max_height: int = 0,
+    return_image: bool = False,
+) -> Any:
+    """Capture multiple viewport angles to a stitched file and return compact metadata."""
     payload = {}
     if views:
         payload["views"] = views
+    payload["max_width"] = max(0, int(max_width))
+    payload["max_height"] = max(0, int(max_height))
     response = client.send_command(json.dumps(payload), cmd_type="native:capture_multi_view")
     raw = response.get("result", "")
     data = json.loads(raw)
     file_path = data.get("file", "")
     if not file_path:
         raise RuntimeError("No image file returned from multi-view capture")
-    img_data = _read_image_bytes(file_path)
-    return Image(data=img_data, format="png")
+    result = _image_file_result(
+        file_path,
+        mime_type="image/png",
+        width=data.get("width"),
+        height=data.get("height"),
+        inline=return_image,
+        image_format="png",
+    )
+    if isinstance(result, dict):
+        result["views"] = data.get("views")
+        result["grid"] = data.get("grid")
+    return result

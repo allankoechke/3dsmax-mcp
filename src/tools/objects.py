@@ -67,7 +67,7 @@ def _finalize_create_result(
 
 @mcp.tool()
 def get_object_properties(name: str) -> str:
-    """Get detailed properties of a named object in the 3ds Max scene."""
+    """Get compact properties of a named object in the 3ds Max scene."""
     if client.native_available:
         try:
             params = _json.dumps({"name": name})

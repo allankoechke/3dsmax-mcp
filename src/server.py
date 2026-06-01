@@ -68,6 +68,7 @@ CORE_TOOL_MODULES = (
     "modifiers",
     "materials",
     "material_ops",
+    "material_network",
     "palette_laydown",
     "smart_import",
     "material_replace",

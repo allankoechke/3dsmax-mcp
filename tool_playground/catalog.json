@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "tool_count": 114,
+  "tool_count": 115,
   "starter_tools": [
     "query_scene",
     "get_session_context",
@@ -94,8 +94,15 @@
     {
       "name": "Materials",
       "hint": "Assign, textures, palette laydown, smart import",
-      "tool_count": 15,
+      "tool_count": 17,
       "categories": [
+        {
+          "name": "Material Network",
+          "tools": [
+            "inspect_material_network",
+            "replicate_material"
+          ]
+        },
         {
           "name": "Materials",
           "tools": [
@@ -126,7 +133,7 @@
     {
       "name": "Inspect",
       "hint": "Object/plugin introspection and analysis",
-      "tool_count": 18,
+      "tool_count": 17,
       "categories": [
         {
           "name": "Analysis",
@@ -140,7 +147,6 @@
         {
           "name": "Inspect",
           "tools": [
-            "inspect_modifier_properties",
             "inspect_object",
             "inspect_properties",
             "introspect_osl"
@@ -1052,37 +1058,8 @@
       "starter": false
     },
     {
-      "name": "inspect_modifier_properties",
-      "description": "Inspect all properties of a specific modifier on an object.",
-      "category": "Inspect",
-      "group": "Inspect",
-      "module": "inspect",
-      "schema": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "modifier_index": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "name",
-          "modifier_index"
-        ]
-      },
-      "example": {
-        "name": "MCP_SmokeTarget",
-        "modifier_index": 1
-      },
-      "risk": "safe",
-      "routing": "python",
-      "starter": false
-    },
-    {
       "name": "inspect_object",
-      "description": "Get comprehensive properties of an object for exploration.",
+      "description": "Get a deep exploratory object summary.",
       "category": "Inspect",
       "group": "Inspect",
       "module": "inspect",
@@ -1423,6 +1400,128 @@
       },
       "risk": "read",
       "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "inspect_material_network",
+      "description": "Inspect a material graph: wired slots, nested maps, file manifest, and health issues.",
+      "category": "Material Network",
+      "group": "Materials",
+      "module": "material_network",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sub_material_index": {
+            "type": "integer"
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "include_values": {
+            "type": "boolean"
+          },
+          "verify_files": {
+            "type": "boolean"
+          },
+          "max_nodes": {
+            "type": "integer"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "compact": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "example": {
+        "name": "MCP_SmokeTarget",
+        "depth": 2,
+        "verify_files": false
+      },
+      "risk": "safe",
+      "routing": "native:inspect_material_network",
+      "starter": false
+    },
+    {
+      "name": "replicate_material",
+      "description": "Preview or apply a structure-preserving material clone/remap through native C++.",
+      "category": "Material Network",
+      "group": "Materials",
+      "module": "material_network",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_sub_material_index": {
+            "type": "integer"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "texture_folder": {
+            "type": "string"
+          },
+          "path_map": {},
+          "preset": {
+            "type": "string"
+          },
+          "material_name": {
+            "type": "string"
+          },
+          "assign": {
+            "type": "boolean"
+          },
+          "instance_maps": {
+            "type": "boolean"
+          },
+          "preview": {
+            "type": "boolean"
+          },
+          "verify": {
+            "type": "boolean"
+          },
+          "allow_missing": {
+            "type": "boolean"
+          },
+          "confirm": {
+            "type": "boolean"
+          },
+          "extend_udim_tiles": {
+            "type": "boolean"
+          },
+          "max_nodes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "target"
+        ]
+      },
+      "example": {
+        "source": "",
+        "target": []
+      },
+      "risk": "advanced",
+      "routing": "native:replicate_material",
       "starter": false
     },
     {
@@ -2433,7 +2532,7 @@
     },
     {
       "name": "get_object_properties",
-      "description": "Get detailed properties of a named object in the 3ds Max scene.",
+      "description": "Get compact properties of a named object in the 3ds Max scene.",
       "category": "Objects",
       "group": "Objects",
       "module": "objects",
@@ -4035,7 +4134,7 @@
     },
     {
       "name": "capture_multi_view",
-      "description": "Capture multiple viewport angles and stitch into a single labeled grid image.",
+      "description": "Capture multiple viewport angles to a stitched file and return compact metadata.",
       "category": "Viewport",
       "group": "Viewport & Render",
       "module": "viewport",
@@ -4047,6 +4146,15 @@
             "items": {
               "type": "string"
             }
+          },
+          "max_width": {
+            "type": "integer"
+          },
+          "max_height": {
+            "type": "integer"
+          },
+          "return_image": {
+            "type": "boolean"
           }
         }
       },
@@ -4057,7 +4165,7 @@
     },
     {
       "name": "capture_screen",
-      "description": "Capture fullscreen only when explicitly enabled.",
+      "description": "Capture fullscreen to a file only when explicitly enabled.",
       "category": "Viewport",
       "group": "Viewport & Render",
       "module": "viewport",
@@ -4078,6 +4186,9 @@
           },
           "min_width": {
             "type": "integer"
+          },
+          "return_image": {
+            "type": "boolean"
           }
         }
       },
@@ -4090,13 +4201,23 @@
     },
     {
       "name": "capture_viewport",
-      "description": "Capture the current 3ds Max viewport and return it as an image.",
+      "description": "Capture the current 3ds Max viewport to a file and return compact metadata.",
       "category": "Viewport",
       "group": "Viewport & Render",
       "module": "viewport",
       "schema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "max_width": {
+            "type": "integer"
+          },
+          "max_height": {
+            "type": "integer"
+          },
+          "return_image": {
+            "type": "boolean"
+          }
+        }
       },
       "example": {},
       "risk": "advanced",

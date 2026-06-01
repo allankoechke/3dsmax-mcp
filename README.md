@@ -7,11 +7,11 @@
 Connect AI agents to Autodesk 3ds Max through the [Model Context Protocol](https://modelcontextprotocol.io). Ask in natural language; the agent creates objects, builds materials, inspects plugins with dedicated MCP tools instead of MAXScript/Python feedback loops.
 Built-in installer works with Cursor, Claude, Codex and Gemini.
 
-**Current release: 1.0.0** — see [CHANGELOG.md](CHANGELOG.md).
+**Current release: 1.0.5** — see [CHANGELOG.md](CHANGELOG.md).
 
 ## Features
 
-- **114 MCP tools** — (77 in core profile) for scene reads, materials, modifiers, controllers, viewport capture, and plugin workflows.
+- **115 MCP tools** — (79 in core profile) for scene reads, materials, modifiers, controllers, viewport capture, and plugin workflows.
 - **Native Bridge** — only 2023-2027 versions.
 - **Introspection** — discover arbitrary Max classes for all kinds of automation and scripting purposes. 
 - **Bundled agent skill** — There is a bundled maxscript documentation if you want to create your own tools.
@@ -68,7 +68,7 @@ uv run python install.py
 |------|-------------|
 | `create_object` | Create geometry with spatial placement feedback |
 | `delete_objects` | Delete objects by name |
-| `get_object_properties` | Detailed properties for one object |
+| `get_object_properties` | Compact properties for one object |
 | `set_object_property` | Set a single object property |
 | `transform_object` | Move, rotate, and/or scale by offset |
 | `analyze_node_orientation` | Pivot, bbox, local axes, and world matrix for rigging and placement |
@@ -95,6 +95,8 @@ uv run python install.py
 |------|-------------|
 | `get_materials` | List materials assigned in the scene |
 | `get_material_slots` | Compact slot/property readback for a material |
+| `inspect_material_network` | Semantic material graph, wired slots, texture manifest, health checks |
+| `replicate_material` | Preview/apply structure-preserving material clone and texture remap |
 | `assign_material` | Create a material and assign it to objects |
 | `set_material_property` | Set one property on an object's material |
 | `set_material_properties` | Set multiple material properties at once |
@@ -113,9 +115,8 @@ uv run python install.py
 
 | Tool | Description |
 |------|-------------|
-| `inspect_object` | Comprehensive object summary |
-| `inspect_properties` | Deep property dump (object, modifier, material, etc.) |
-| `inspect_modifier_properties` | All properties on one modifier |
+| `inspect_object` | Deep exploratory object summary |
+| `inspect_properties` | Deep property dump (`target="object"|"modifier"|"baseobject"|"material"`) |
 | `introspect_osl` | API surface for OSLMap and shader classes |
 | `walk_references` | Full reference dependency walk |
 | `learn_scene_patterns` | Analyze class usage patterns in the live scene |
