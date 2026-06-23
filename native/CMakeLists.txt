@@ -100,6 +100,7 @@ set(SOURCES
     src/handlers/material_handlers.cpp
     src/handlers/material_network_handlers.cpp
     src/handlers/controller_handlers.cpp
+    src/handlers/keyframe_handlers.cpp
     src/handlers/plugin_introspect_handlers.cpp
     src/handlers/organize_handlers.cpp
     src/handlers/learning_handlers.cpp

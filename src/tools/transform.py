@@ -13,7 +13,7 @@ def transform_object(
     scale: Optional[FloatList] = None,
     coordinate_system: str = "world",
 ) -> str:
-    """Move, rotate, and/or scale an object by the given offsets."""
+    """Move, rotate, and/or scale an object by the given world/local offsets. For keyed objects prefer keyframe_tracks value/move at explicit times — this tool can rewrite keys at the current slider frame."""
     if client.native_available:
         try:
             params: dict = {"name": name}

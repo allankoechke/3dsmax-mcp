@@ -120,6 +120,7 @@ namespace NativeHandlers {
     std::string InspectController(const std::string& params, MCPBridgeGUP* gup);
     std::string SetControllerProps(const std::string& params, MCPBridgeGUP* gup);
     std::string AddControllerTarget(const std::string& params, MCPBridgeGUP* gup);
+    std::string KeyframeTracks(const std::string& params, MCPBridgeGUP* gup);
 
     // Wire params
     std::string WireParams(const std::string& params, MCPBridgeGUP* gup);

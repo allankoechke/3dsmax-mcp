@@ -234,12 +234,58 @@ def mcp_server_entry(repo_dir: str) -> dict:
     return {"command": "uv", "args": ["run", "--directory", repo_dir, "3dsmax-mcp"]}
 
 
+def claude_desktop_config_paths() -> list[Path]:
+    """Return Claude Desktop config paths for classic and Microsoft Store installs."""
+    paths: list[Path] = []
+    seen: set[str] = set()
+
+    def add(path: Path) -> None:
+        key = str(path)
+        if key in seen:
+            return
+        seen.add(key)
+        paths.append(path)
+
+    packages_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Packages"
+    if packages_dir.is_dir():
+        for pkg_dir in sorted(packages_dir.glob("Claude_*")):
+            add(
+                pkg_dir
+                / "LocalCache"
+                / "Roaming"
+                / "Claude"
+                / "claude_desktop_config.json"
+            )
+
+    add(Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json")
+    return paths
+
+
+def _claude_desktop_label(config_path: Path) -> str:
+    parts = {part.lower() for part in config_path.parts}
+    if "packages" in parts and any(part.lower().startswith("claude_") for part in config_path.parts):
+        return "Claude Desktop (Microsoft Store)"
+    return "Claude Desktop"
+
+
 def app_mcp_config_paths() -> list[tuple[str, Path]]:
-    return [
-        ("Claude Desktop", Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json"),
-        ("Gemini", Path.home() / ".gemini" / "settings.json"),
-        ("Cursor", Path.home() / ".cursor" / "mcp.json"),
-    ]
+    targets = [(_claude_desktop_label(path), path) for path in claude_desktop_config_paths()]
+    targets.extend(
+        [
+            ("Gemini", Path.home() / ".gemini" / "settings.json"),
+            ("Cursor", Path.home() / ".cursor" / "mcp.json"),
+        ]
+    )
+    return targets
+
+
+def warn_if_uv_missing() -> None:
+    if shutil.which("uv"):
+        return
+    print("  WARNING: 'uv' not found on PATH.")
+    print("  Claude Desktop / Cursor may fail to launch the MCP server until uv is available.")
+    print("  Install with: pip install uv")
+    print("  If uv is already installed, add your Python Scripts folder to PATH.")
 
 
 def register_app_mcp_configs(repo_dir: str) -> None:
@@ -295,6 +341,8 @@ def register_agents() -> bool:
             print(f"  OK: {agent}")
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             print(f"  SKIP: {agent} (run manually: {cmd})")
+
+    warn_if_uv_missing()
 
     # App configs that store mcpServers (Claude Desktop, Gemini, Cursor)
     register_app_mcp_configs(dir_str)

@@ -124,6 +124,13 @@ Debugging:
 - `create_shell_material`: `mcp_findMaterialByName` uses `sceneMaterials` — `getClassInstances Material` is invalid (Material is not a MAXClass).
 - `python -m src.server` runs as `__main__`; alias it to `src.server` before importing tool modules or `from ..server import mcp` creates a second empty FastMCP instance.
 
+### Keyframes (`keyframe_tracks`)
+- **`action=list`** — read-only inspection; pass `from_time`/`to_time` for `loopGaps`. Parent `numKeys` is often 0 — keys live on Bezier Float sub-controllers.
+- **`action=loop`** — copies evaluated pose from `from_time` to `to_time` parent-first; use for parented reflection rigs (e.g. `Plane001` → children). Defaults: frames 1→100.
+- **`action=match`** with `order=hierarchy` — same parent-first copy as `loop` when closing endpoints on rigged hierarchies.
+- Prefer **`value`/`move` on keyed tracks** over `transform_object` for animated objects — `transform_object` rewrites keys at the current slider frame.
+- **`tracks`** accepts exact tokens only: `all`, `position`/`pos`, `rotation`/`rot`, `scale`/`scl`, `transform`/`tm` — not substring matches.
+
 ## MAXScript Pitfalls
 
 - **No parens with keyword args**: `Box width:10` not `Box() width:10`

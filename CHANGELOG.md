@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here.
 
+## [1.0.6] — 2026-06-24
+
+Keyframing and installer release draft with the package version bumped to `1.0.6`.
+
+### Added
+
+- `keyframe_tracks` for native key inspection, setting, endpoint matching, loop closure, tangent styling, and out-of-range behavior edits.
+- Compact, budgeted keyframe summaries for baked animation and mocap-heavy controllers.
+- Keyed `value` and `move` writes so animation edits can avoid `transform_object` offset side effects.
+
+### Changed
+
+- Keyframe result counters distinguish logical track edits from raw sub-controller edits.
+- Installer discovery covers classic and Microsoft Store Claude Desktop config paths.
+
+### Fixed
+
+- Composite Position/Euler/Scale controllers now create and style explicit-frame keys through their child tracks.
+- Keyframe styling reports stable candidate counts on first set-and-style calls.
+- Track-path matching is exact so narrow keyframe edits do not leak into similarly named tracks.
+
 ## [1.0.5] — 2026-06-01
 
 Material-network release draft with the package version bumped to `1.0.5`.

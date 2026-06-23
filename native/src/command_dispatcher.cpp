@@ -452,6 +452,8 @@ std::string CommandDispatcher::Dispatch(
             result = NativeHandlers::SetControllerProps(command, gup);
         } else if (cmd_type == "native:add_controller_target") {
             result = NativeHandlers::AddControllerTarget(command, gup);
+        } else if (cmd_type == "native:keyframe_tracks") {
+            result = NativeHandlers::KeyframeTracks(command, gup);
         // Wire params
         } else if (cmd_type == "native:wire_params") {
             result = NativeHandlers::WireParams(command, gup);

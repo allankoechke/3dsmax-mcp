@@ -80,6 +80,7 @@ CORE_TOOL_MODULES = (
     "file_access",
     "learning",
     "controllers",
+    "keyframes",
     "tool_test",
 )
 
