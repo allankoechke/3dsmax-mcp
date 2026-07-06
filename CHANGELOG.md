@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## [1.1.0] — 2026-07-06
+
+Render-automation release draft with the package version bumped to `1.1.0`.
+
+### Added
+
+- `render_automations` — arms a render done-signal at 3ds Max's `NOTIFY_POST_RENDER` and reports completion (with the real `frames_rendered` count) through an event-driven file watcher (`scripts/render_signal_wait.ps1`); no polling, never blocks the bridge. Includes `cancel` to abort a render in flight from the pipe thread.
+- Native `render_start` / `render_cancel` handlers and an always-on render-completion pinger.
+
+### Changed
+
+- The bridge is a render *listener*, not a trigger: `render_automations(start)` only arms the done-signal, and the render is fired externally (Render button, or `max quick render` via `execute_maxscript`). Launching the render from inside the bridge caused 3ds Max to auto-start a second render on completion and loop; keeping the trigger outside the bridge avoids it.
+
 ## [1.0.6] — 2026-06-24
 
 Keyframing and installer release draft with the package version bumped to `1.0.6`.
