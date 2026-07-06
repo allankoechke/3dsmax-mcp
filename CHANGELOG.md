@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## [1.1.1] — 2026-07-07
+
+Material-library tooling — additive over `1.1.0`, pure MAXScript with no native bridge change (same `.gup` binaries).
+
+### Added
+
+- `get_material_library` — inspects the volatile material scratchpads (`currentMaterialLibrary` and the Compact Material Editor slots) that aren't saved with the scene, and warns when the current library has no backing `.mat` file.
+- `backup_material_library` — saves those scratchpads to timestamped `.mat` files without touching the scene.
+
+### Changed
+
+- `execute_maxscript` suggests the new tools when raw MAXScript touches the material library.
+- `SKILL.md` trimmed to Max-usage gotchas only (dropped a Python-server dev note).
+
 ## [1.1.0] — 2026-07-06
 
 Render-automation release draft with the package version bumped to `1.1.0`.
