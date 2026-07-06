@@ -2,32 +2,22 @@
 
 All notable changes to this project are documented here.
 
-## [1.1.1] — 2026-07-07
-
-Material-library tooling — additive over `1.1.0`, pure MAXScript with no native bridge change (same `.gup` binaries).
-
-### Added
-
-- `get_material_library` — inspects the volatile material scratchpads (`currentMaterialLibrary` and the Compact Material Editor slots) that aren't saved with the scene, and warns when the current library has no backing `.mat` file.
-- `backup_material_library` — saves those scratchpads to timestamped `.mat` files without touching the scene.
-
-### Changed
-
-- `execute_maxscript` suggests the new tools when raw MAXScript touches the material library.
-- `SKILL.md` trimmed to Max-usage gotchas only (dropped a Python-server dev note).
-
 ## [1.1.0] — 2026-07-06
 
-Render-automation release draft with the package version bumped to `1.1.0`.
+Render automation (done-signal) and material-library tooling.
 
 ### Added
 
 - `render_automations` — arms a render done-signal at 3ds Max's `NOTIFY_POST_RENDER` and reports completion (with the real `frames_rendered` count) through an event-driven file watcher (`scripts/render_signal_wait.ps1`); no polling, never blocks the bridge. Includes `cancel` to abort a render in flight from the pipe thread.
 - Native `render_start` / `render_cancel` handlers and an always-on render-completion pinger.
+- `get_material_library` — inspects the volatile material scratchpads (`currentMaterialLibrary` and the Compact Material Editor slots) that aren't saved with the scene, and warns when the current library has no backing `.mat` file.
+- `backup_material_library` — saves those scratchpads to timestamped `.mat` files without touching the scene.
 
 ### Changed
 
 - The bridge is a render *listener*, not a trigger: `render_automations(start)` only arms the done-signal, and the render is fired externally (Render button, or `max quick render` via `execute_maxscript`). Launching the render from inside the bridge caused 3ds Max to auto-start a second render on completion and loop; keeping the trigger outside the bridge avoids it.
+- `execute_maxscript` suggests the material-library tools when raw MAXScript touches the material library.
+- `SKILL.md` trimmed to Max-usage gotchas only.
 
 ## [1.0.6] — 2026-06-24
 
