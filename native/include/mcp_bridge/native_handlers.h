@@ -67,6 +67,9 @@ namespace NativeHandlers {
     std::string CaptureViewport(const std::string& params, MCPBridgeGUP* gup);
     std::string CaptureScreen(const std::string& params, MCPBridgeGUP* gup);
 
+    // Advanced Vision overlay
+    std::string AdvancedVision(const std::string& params, MCPBridgeGUP* gup);
+
     // Phase 6: Material writes
     std::string AssignMaterial(const std::string& params, MCPBridgeGUP* gup);
     std::string SetMaterialProperty(const std::string& params, MCPBridgeGUP* gup);
@@ -105,6 +108,16 @@ namespace NativeHandlers {
 
     // Render
     std::string RenderScene(const std::string& params, MCPBridgeGUP* gup);
+
+    // Render automation: kick a deferred render and emit a done-signal file at
+    // NOTIFY_POST_RENDER. RenderStart returns immediately; the bridge is not
+    // blocked for the render. Register/Unregister are called from GUP Start/Stop.
+    // RenderCancel runs on the pipe thread (never marshals — the main thread IS
+    // the render) and raises the SDK abort flag, like pressing Cancel.
+    std::string RenderStart(const std::string& params, MCPBridgeGUP* gup);
+    std::string RenderCancel(const std::string& params, MCPBridgeGUP* gup);
+    void RegisterRenderNotifications();
+    void UnregisterRenderNotifications();
 
     // Material replace
     std::string ReplaceMaterial(const std::string& params, MCPBridgeGUP* gup);

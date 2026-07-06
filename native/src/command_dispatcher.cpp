@@ -379,6 +379,8 @@ std::string CommandDispatcher::Dispatch(
             result = NativeHandlers::CaptureViewport(command, gup);
         } else if (cmd_type == "native:capture_screen") {
             result = NativeHandlers::CaptureScreen(command, gup);
+        } else if (cmd_type == "native:advancedvision") {
+            result = NativeHandlers::AdvancedVision(command, gup);
         // Phase 6: Material writes
         } else if (cmd_type == "native:assign_material") {
             result = NativeHandlers::AssignMaterial(command, gup);
@@ -429,6 +431,10 @@ std::string CommandDispatcher::Dispatch(
         // Render
         } else if (cmd_type == "native:render_scene") {
             result = NativeHandlers::RenderScene(command, gup);
+        } else if (cmd_type == "native:render_start") {
+            result = NativeHandlers::RenderStart(command, gup);
+        } else if (cmd_type == "native:render_cancel") {
+            result = NativeHandlers::RenderCancel(command, gup);
         // Material replace
         } else if (cmd_type == "native:replace_material") {
             result = NativeHandlers::ReplaceMaterial(command, gup);

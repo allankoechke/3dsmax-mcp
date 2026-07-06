@@ -291,10 +291,16 @@ DWORD MCPBridgeGUP::Start() {
     // Register macroscripts after Max is fully loaded
     RegisterNotification(OnSystemStartupDone, nullptr, NOTIFY_SYSTEM_STARTUP);
 
+    // Render automation: hook NOTIFY_POST_RENDER so render_start jobs emit a
+    // filesystem done-signal at the real completion event (no polling).
+    NativeHandlers::RegisterRenderNotifications();
+
     return GUPRESULT_KEEP;
 }
 
 void MCPBridgeGUP::Stop() {
+    NativeHandlers::UnregisterRenderNotifications();
+
     // Drain detached chat threads (ProcessChatMessage launches std::thread.detach()
     // per user message; they sit in WinHTTP and capture `this`) before tearing
     // down the executor and chat UI, otherwise the thread resumes into freed

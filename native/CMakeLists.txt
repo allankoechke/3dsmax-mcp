@@ -97,6 +97,7 @@ set(SOURCES
     src/handlers/scene_manage_handlers.cpp
     src/handlers/file_handlers.cpp
     src/handlers/viewport_handlers.cpp
+    src/handlers/advancedvision_handlers.cpp
     src/handlers/material_handlers.cpp
     src/handlers/material_network_handlers.cpp
     src/handlers/controller_handlers.cpp

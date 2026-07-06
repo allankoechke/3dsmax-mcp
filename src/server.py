@@ -76,6 +76,7 @@ CORE_TOOL_MODULES = (
     "plugins",
     "organize",
     "viewport",
+    # "advancedvision",  # WIP — code kept & compiled, tool not exposed yet
     "identify",
     "file_access",
     "learning",
@@ -91,6 +92,7 @@ SPECIALTY_TOOL_MODULES = (
     "floor_plan",
     "railclone",
     "render",
+    "render_automations",
     "scattering",
     "state_sets",
     "tyflow",
