@@ -94,6 +94,8 @@ uv run python install.py
 | Tool | Description |
 |------|-------------|
 | `get_materials` | List materials assigned in the scene |
+| `get_material_library` | Inspect `currentMaterialLibrary` and Material Editor scratch slots |
+| `backup_material_library` | Save temporary/scratch material libraries to `.mat` files |
 | `get_material_slots` | Compact slot/property readback for a material |
 | `inspect_material_network` | Semantic material graph, wired slots, texture manifest, health checks |
 | `replicate_material` | Preview/apply structure-preserving material clone and texture remap |
