@@ -3,6 +3,7 @@
 #include "mcp_bridge/llm_client.h"
 #include "mcp_bridge/native_handlers.h"
 #include "mcp_bridge/handler_helpers.h"
+#include "mcp_bridge/scene_journal.h"
 #include <maxapi.h>
 #include <notify.h>
 #include <shlobj.h>
@@ -279,6 +280,7 @@ DWORD MCPBridgeGUP::Start() {
     MCPChatUI::Init(hInstance);
 
     StartPipe();
+    SceneJournal::Register();
 
     // Init LLM client — reads %LOCALAPPDATA%\3dsmax-mcp\mcp_config.ini [llm]
     LLMClient::Init();
@@ -299,6 +301,7 @@ DWORD MCPBridgeGUP::Start() {
 }
 
 void MCPBridgeGUP::Stop() {
+    SceneJournal::Unregister();
     NativeHandlers::UnregisterRenderNotifications();
 
     // Drain detached chat threads (ProcessChatMessage launches std::thread.detach()

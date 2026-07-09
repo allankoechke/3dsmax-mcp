@@ -56,6 +56,7 @@ namespace NativeHandlers {
     std::string SetParent(const std::string& params, MCPBridgeGUP* gup);
     std::string BatchRenameObjects(const std::string& params, MCPBridgeGUP* gup);
     std::string ManageScene(const std::string& params, MCPBridgeGUP* gup);
+    std::string UndoLast(const std::string& params, MCPBridgeGUP* gup);
 
     // File access (new feature)
     std::string InspectMaxFile(const std::string& params, MCPBridgeGUP* gup);

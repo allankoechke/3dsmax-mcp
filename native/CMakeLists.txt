@@ -88,6 +88,7 @@ set(SOURCES
     src/pipe_server.cpp
     src/command_dispatcher.cpp
     src/main_thread_executor.cpp
+    src/scene_journal.cpp
     src/handlers/scene_handlers.cpp
     src/spatial_snapshot.cpp
     src/handlers/object_handlers.cpp
