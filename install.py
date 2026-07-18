@@ -9,6 +9,7 @@ Skip skill install: uv run python install.py --skip-skill
 """
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -45,6 +46,39 @@ ENV_DST = CONFIG_DIR / ".env"
 SKILL_SRC = ROOT / "skills" / "3dsmax-mcp-dev" / "SKILL.md"
 SKILL_DIR = CONFIG_DIR / "skill"
 SKILL_DST = SKILL_DIR / "SKILL.md"
+
+INSTALLER_ANSI_BANNER = base64.b64decode(
+    "G1swOzMwbSAgIBtbMTszN23c3Nzc3BtbMDszMG0gG1sxOzM3bdzc3Nzc3BtbMDszMG0gICAbWzE7Mzdt3Nzc3NwbWzA7MzBtIBtb"
+    "MTszN23c3NwbWzA7MzBtICAgIBtbMTszN23c3NwbWzA7MzBtICAgG1sxOzM3bdzcG1swOzMwbSAgIBtbMTszN23c3BtbMDszMG0g"
+    "ICAbWzE7Mzdt3NzcG1swOzMwbSAgG1sxOzM3bdzc3NwbWzA7MzBtICAgG1sxOzM3bdzc3NwbWzA7MzBtIBtbMTszN23c3Nzc3Btb"
+    "MDszMG0gIBtbMTszN23c3Nzc3NwbWzBtDQobWzA7MzBtICAbWzE7Mzdt29vfG1swOzM0bdwbWzE7Mzdt39vb29vf39/f29zb2xtb"
+    "MDszNG3c3BtbMTszN23f29vb29vcG1swOzMwbSAgG1sxOzM3bdvb29sbWzA7MzRt3BtbMDszMG0gG1sxOzM3bdvb29sbWzA7MzBt"
+    "ICAbWzE7Mzdt39vb3Nzb3xtbMDszNG3c3BtbMDszMG0gG1sxOzM3bdvb29sbWzA7MzRt3BtbMDszMG0gIBtbMTszN23b29vb29vf"
+    "G1swOzM0bdwbWzE7Mzdt39/b29vbG1swOzM0bdzcG1sxOzM3bd/b2xtbMG0NChtbMDszMG0gICAbWzA7MzRt29sbWzE7MzZt29vb"
+    "39vbG1swOzM0bdvf398bWzE7MzZt29vf29vb3Nzc29vf2xtbMDszNG3cG1sxOzM2bdzb39vbG1swOzM0bdsbWzE7MzZt29sbWzA7"
+    "MzRt29sbWzE7MzZt29wbWzA7MzBtICAbWzA7MzRt3xtbMTszNm3b29vfG1swOzM0bdsbWzE7MzZt3Nzc29sbWzA7MzRt2xtbMTsz"
+    "Nm3b2xtbMDszMG0gG1sxOzM2bdvb39vb2xtbMDszNG3b298bWzA7MzBtIBtbMDszNG3f3xtbMTszNm3f29vc3Nzb2xtbMDszNG3b"
+    "G1swbQ0KG1swOzMwbSAgG1sxOzM2bdzcG1swOzMwbSAgG1swOzM0bdsbWzE7MzZt29vb2xtbMDszNG3bG1swOzMwbSAgG1sxOzM2"
+    "bdzb29zcG1swOzM0bdvbG1sxOzM2bd/b29vbG1swOzM0bdsbWzE7MzZt29vb2xtbMDszNG3bG1sxOzM2bdvb3Nvb29vb29wbWzA7"
+    "MzBtIBtbMTszNm3c29/b29zf39/b2xtbMDszNG3bG1sxOzM2bd/b29sbWzA7MzRt29sbWzE7MzZt29vb3BtbMDszMG0gICAgG1sx"
+    "OzM2bdvb29vf398bWzA7MzRt3NvbG1swbQ0KG1swOzMwbSAgG1swOzM2bd/b29vb29/b29vb29vfG1swOzM0bdsbWzA7MzZt39vb"
+    "29vb39vbG1swOzM0bdsbWzA7MzZt39vbG1swOzM0bdvbG1swOzM2bdvb29sbWzA7MzRt29vb2xtbMDszNm3b29vb3xtbMDszNG3b"
+    "3xtbMDszNm3f29wbWzA7MzRt398bWzA7MzZt29sbWzA7MzRt2xtbMDszMG0gG1swOzM2bd/b3xtbMDszNG3bG1swOzMwbSAbWzA7"
+    "MzZt29/f29vb29vf39vbG1swOzM0bdvf398bWzBtDQobWzA7MzBtICAgG1swOzM0bd/b29vb29/b29vb29vfG1swOzMwbSAbWzA7"
+    "MzRt39vb29vb39vbG1swOzMwbSAbWzA7MzRt39vbG1swOzMwbSAgG1swOzM0bdvb29sbWzA7MzBtICAgIBtbMDszNG3b29vb3xtb"
+    "MDszMG0gIBtbMDszNG3f29wbWzA7MzBtICAbWzA7MzRt29sbWzA7MzBtICAbWzA7MzRt39vfG1swOzMwbSAgG1swOzM0bdvf39vb"
+    "29vb39/b2xtbMG0NCg=="
+)
+ANSI_CSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+REDIRECTED_BANNER_TRANSLATION = str.maketrans({"█": "#", "▀": "^", "▄": "_", "·": "."})
+
+
+def installer_banner() -> str:
+    """Return the ANSI card, stripping terminal controls for redirected output."""
+    banner = INSTALLER_ANSI_BANNER.decode("cp437")
+    if sys.stdout.isatty():
+        return banner
+    return ANSI_CSI_RE.sub("", banner).translate(REDIRECTED_BANNER_TRANSLATION)
 
 # Extract list of supported years from GUP_SRCS
 MAX_YEARS = sorted(GUP_SRCS.keys(), reverse=True)
@@ -371,9 +405,8 @@ def parse_args() -> argparse.Namespace:
 def main():
     args = parse_args()
 
-    print("=" * 60)
-    print(f"  3dsmax-mcp installer v{pkg_version()}")
-    print("=" * 60)
+    sys.stdout.write(installer_banner())
+    print(f"  3dsmax-mcp installer v{pkg_version()}\n")
 
     # Find Max
     found = find_max_installations()
