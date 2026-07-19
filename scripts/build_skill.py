@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SKILL_DIR = ROOT / "skills" / "3dsmax-mcp-dev"
 SKILL_SRC = SKILL_DIR / "SKILL.md"
+PROCEDURAL_GRAPHS_REF = SKILL_DIR / "procedural-graphs.md"
 SKILL_OUT = ROOT / "3dsmax-mcp-dev.skill"
 LOCAL_AGENTS_DIR = ROOT / ".agents" / "skills" / "3dsmax-mcp-dev"
 GLOBAL_SKILLS_DIR = Path.home() / ".claude" / "skills" / "3dsmax-mcp-dev"
@@ -23,7 +24,7 @@ MCP server for AI agents to control 3ds Max. This file is auto-generated from `s
 
 When you encounter a bug, unexpected behavior, or discover a MAXScript/3ds Max/MCP pitfall:
 1. Fix the issue
-2. Append the lesson to the relevant section in `skills/3dsmax-mcp-dev/SKILL.md`
+2. Append the lesson to the relevant source: `skills/3dsmax-mcp-dev/SKILL.md` or `skills/3dsmax-mcp-dev/procedural-graphs.md`
 3. One line per lesson — include the pattern or fix
 4. Check for duplicates before adding
 
@@ -36,7 +37,8 @@ When you encounter a bug, unexpected behavior, or discover a MAXScript/3ds Max/M
 - `native/` — C++ GUP bridge plugin (named pipe, 53 native handlers)
 
 ## Skills & Build
-- `skills/3dsmax-mcp-dev/SKILL.md` — source of truth (grows via learn-from-mistakes)
+- `skills/3dsmax-mcp-dev/SKILL.md` — core workflow and reference router
+- `skills/3dsmax-mcp-dev/procedural-graphs.md` — Data Channel and MCG workflows/pitfalls
 - `scripts/build_skill.py` — builds `.skill` archive, copies to repo `.agents/skills/` plus user-level `.claude/skills/` and `.agents/skills/`, generates `AGENTS.md`
 - `.agents/skills/` and `AGENTS.md` are gitignored — never edit them directly
 
@@ -57,11 +59,11 @@ def generate_agents_md():
     """Generate AGENTS.md from the repo header + inlined skill file.
 
     Codex/Gemini read AGENTS.md from the repo root. They don't have
-    the skill system, so we inline SKILL.md directly into AGENTS.md.
+    the skill system, so we inline SKILL.md and route bundled references back
+    to their source paths in the checkout.
     """
-    # Inline SKILL.md only (pitfalls, tool reference, architecture).
-    # MAXScript reference files (maxscript-*.md) are too large to inline —
-    # agents can read them on demand from skills/3dsmax-mcp-dev/
+    # Bundled references are intentionally not inlined; agents read them only
+    # when the core skill routes the current task there.
     parts = [AGENTS_HEADER, "", "---", ""]
 
     if SKILL_SRC.exists():
@@ -71,6 +73,10 @@ def generate_agents_md():
             end = skill_text.find("---", 3)
             if end != -1:
                 skill_text = skill_text[end + 3:].lstrip("\n")
+        skill_text = skill_text.replace(
+            "](procedural-graphs.md)",
+            "](skills/3dsmax-mcp-dev/procedural-graphs.md)",
+        )
         parts.append(skill_text)
 
     AGENTS_MD.write_text("\n".join(parts), "utf-8")
@@ -78,8 +84,8 @@ def generate_agents_md():
 
 
 def collect_skill_files():
-    """Collect SKILL.md + all maxscript-*.md reference files."""
-    files = [SKILL_SRC]
+    """Collect the core skill and its bundled reference files."""
+    files = [SKILL_SRC, PROCEDURAL_GRAPHS_REF]
     for md in sorted(SKILL_DIR.glob("maxscript-*.md")):
         files.append(md)
     return files
