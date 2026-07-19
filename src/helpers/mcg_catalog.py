@@ -17,7 +17,16 @@ from typing import Iterable
 
 GRAPH_EXTENSIONS = {".maxtool", ".maxcompound"}
 _MAX_DIR_RE = re.compile(r"^3ds Max (?P<year>\d{4})$", re.IGNORECASE)
-_DEFAULT_SAMPLE_ROOT = Path(r"D:\3dsMax\3dsMax-MCG-Samples")
+
+
+def bundled_sample_root() -> Path:
+    """Return the read-only Autodesk MCG XML corpus shipped with the package."""
+    return (
+        Path(__file__).resolve().parents[1]
+        / "resources"
+        / "mcg_samples"
+        / "autodesk_mcg_2017"
+    )
 
 
 def _candidate_program_files() -> list[Path]:
@@ -105,7 +114,7 @@ def sample_roots() -> list[Path]:
     for item in configured.split(os.pathsep):
         if item.strip():
             values.append(Path(item.strip()).expanduser())
-    values.append(_DEFAULT_SAMPLE_ROOT)
+    values.append(bundled_sample_root())
 
     result: list[Path] = []
     seen: set[str] = set()
@@ -370,6 +379,7 @@ def search_offline_operators(
 
 __all__ = [
     "GRAPH_EXTENSIONS",
+    "bundled_sample_root",
     "compound_root",
     "find_max_installations",
     "find_tool_template",

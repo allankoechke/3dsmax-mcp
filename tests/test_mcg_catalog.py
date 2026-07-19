@@ -1,8 +1,15 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from src.helpers.mcg_catalog import parse_compound_metadata, parse_operator_metadata
+from src.helpers.mcg_catalog import (
+    bundled_sample_root,
+    parse_compound_metadata,
+    parse_operator_metadata,
+    sample_roots,
+)
 
 
 class MCGCatalogTests(unittest.TestCase):
@@ -53,6 +60,30 @@ class MCGCatalogTests(unittest.TestCase):
         self.assertEqual(record["return_type"], "")
         self.assertFalse(record["impure"])
         self.assertTrue(record["impure_known"])
+
+    def test_bundled_samples_are_portable_xml_only_corpus(self) -> None:
+        with patch.dict(os.environ, {"MCP_MCG_SAMPLE_ROOTS": ""}, clear=False):
+            roots = sample_roots()
+
+        bundled = bundled_sample_root().resolve()
+        self.assertIn(bundled, roots)
+        self.assertEqual(len(list(bundled.rglob("*.maxtool"))), 43)
+        self.assertEqual(len(list(bundled.rglob("*.maxcompound"))), 282)
+        self.assertFalse((bundled / "Scenes").exists())
+        self.assertFalse((bundled / "Packages").exists())
+        self.assertEqual(len(list(bundled.rglob("*.max"))), 0)
+        self.assertEqual(len(list(bundled.rglob("*.mcg"))), 0)
+
+    def test_configured_sample_roots_extend_bundled_samples(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"MCP_MCG_SAMPLE_ROOTS": str(self.root)},
+            clear=False,
+        ):
+            roots = sample_roots()
+
+        self.assertEqual(roots[0], self.root.resolve())
+        self.assertIn(bundled_sample_root().resolve(), roots)
 
 
 if __name__ == "__main__":

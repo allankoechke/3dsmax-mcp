@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here.
 
+## [1.3.0] — 2026-07-19
+
+Agentic Max Creation Graph authoring, robust Data Channel control, and portable MCG references.
+
+### Added
+
+- End-to-end MCG tools for context discovery, graph/operator search, temporary graph creation, structured patching, compilation, instance inspection, modifier application, testing, checkpoint restore, and workspace cleanup.
+- A bounded MCG iteration transaction with expected-hash concurrency checks, safety checkpoints, compile diagnostics, disposable semantic verification, automatic rollback, and compact proof-of-change.
+- Native MCG handlers for deterministic Viper validation/compilation, exact generated-class resolution, safe modifier application, typed parameter assignment, instance readback, and UI error text capture.
+- A read-only Autodesk 3ds Max 2017 MCG reference corpus containing 43 `.maxtool` and 282 `.maxcompound` XML graphs, pinned to its MIT-licensed upstream commit and shipped without scenes or packages.
+- Data Channel operator discovery, preset discovery/loading, modifier inspection, operator editing, and validated stack management.
+
+### Changed
+
+- Data Channel builds now use the live Max operator catalog, explicit Replace mode for the first Input operator, complete reorder validation, and UI error readback instead of version-fragile hardcoded IDs.
+- MCG graphs compile and verify only from process-scoped temporary workspaces; installed graphs and bundled samples remain read-only fork sources.
+- MCG executable surfaces and impure operators fail closed under safe mode, while graph UUID/version identity, source ports, named destination ports, and generated plug-in classes are preserved or resolved explicitly.
+- Procedural graph guidance moved into a dedicated skill reference so the normal 3ds Max MCP prompt remains compact.
+
+### Fixed
+
+- Native bridge error codes survive Python wrapper failures instead of degrading to generic `BAD_PARAM` responses.
+- MCG compilation returns actual Viper diagnostics and generated wrapper details instead of relying on undocumented or nonexistent reload-message APIs.
+- Data Channel's first operator no longer remains in the invalid unset blend mode that causes `First operator must be an Input Operator and in Replace`.
+
 ## [1.2.0] — 2026-07-09
 
 Structured tool envelopes, centralized error hints, atomic undo, and handle addressing.

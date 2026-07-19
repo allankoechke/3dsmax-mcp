@@ -36,6 +36,7 @@ Read this reference completely before building, inspecting, editing, compiling, 
 - Fresh scripted classes may be invisible to native `create_object`; disposable verification resolves the exact generated class from the `.ms` wrapper and instantiates it in MAXScript.
 - Fresh scripted modifier classes may be invisible to generic native `add_modifier`; use `mcg_apply_modifier`, which resolves the exact `Class_ID`, verifies `pluginGraph`, and assigns only typed scalar `INode` PB2 parameters before stack insertion.
 - `mcg_list_graphs` scope tokens are `session`, `samples`, `installed`, and `all`; `samples` is plural.
+- The bundled Autodesk 2017 sample corpus is read-only reference material and contains only `.maxtool` and `.maxcompound` XML; never ship its `Scenes` or `Packages`, and always fork a graph into the temporary workspace before compilation.
 - Native `create_object` class lookup may reject `GeoSphere`; use the supported `Sphere` primitive or MAXScript only when a true geosphere is required.
 - Treat `EvalMAXScript`, nonblank `<customui>`, and executable compound dependencies as code-execution surfaces; block them by default and never override MCP safe mode.
 - Keep a compiled graph and its dependencies alive for the session because generated plug-ins retain the source path; Max 2027 emits `.ms` but normally no `.txt` diagnostic graph.
