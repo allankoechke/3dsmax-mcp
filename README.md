@@ -11,7 +11,7 @@ Built-in installer works with Cursor, Claude, Codex and Gemini.
 
 ## Features
 
-- **115 MCP tools** — (79 in core profile) for scene reads, materials, modifiers, controllers, viewport capture, and plugin workflows.
+- **138 MCP tools** — (83 in core profile) for scene reads, materials, modifiers, controllers, viewport capture, procedural graphs, and plugin workflows.
 - **Native Bridge** — only 2023-2027 versions.
 - **Introspection** — discover arbitrary Max classes for all kinds of automation and scripting purposes. 
 - **Bundled agent skill** — There is a bundled maxscript documentation if you want to create your own tools.
@@ -199,18 +199,40 @@ MCP resources: `resource://3dsmax-mcp/plugins/{name}/manifest|guide|recipes|gotc
 | `get_state_sets` | State Sets with camera assignments |
 | `get_camera_sequence` | Camera-assigned State Sets sorted by frame |
 
-> **Work in progress** — the plugin and layout integrations below (Data Channel, tyFlow, Forest Pack, RailClone, Floor plan) are early-stage and may be incomplete or change between releases. Everything listed above is stable.
-
-### Data Channel (WIP)
+### Data Channel
 
 | Tool | Description |
 |------|-------------|
+| `list_dc_operators` | Search the live version-specific operator catalog |
+| `list_dc_presets` | List installed Data Channel presets |
 | `add_data_channel` | Append operators to a Data Channel modifier stack |
-| `inspect_data_channel` | Read the operator graph |
-| `set_data_channel_operator` | Set properties on one operator |
-| `add_dc_script_operator` | Add a MAXScript operator |
-| `list_dc_presets` | List available presets |
+| `inspect_data_channel` | Read the active stack in visible processing order |
+| `set_data_channel_operator` | Edit one visible operator with rollback on failure |
+| `manage_data_channel_stack` | Delete, enable, disable, or safely reorder operators |
 | `load_dc_preset` | Load a preset into the stack |
+| `add_dc_script_operator` | Add executable MAXScript with explicit authorization |
+
+### Max Creation Graph
+
+| Tool | Description |
+|------|-------------|
+| `mcg_get_context` | Compiler, temporary workspace, templates, samples, and safety state |
+| `mcg_list_graphs` | List temporary, installed, or bundled sample graphs |
+| `mcg_inspect_graph` | Normalize graph metadata, nodes, connections, and parameters |
+| `mcg_search_operators` | Search live typed operators and offline compound references |
+| `mcg_create_graph` | Fork a read-only source into the temporary workspace |
+| `mcg_apply_patch` | Patch, compile, verify, checkpoint, and roll back transactionally |
+| `mcg_compile_graph` | Validate and compile one temporary graph with diagnostics |
+| `mcg_test_tool` | Create, inspect, and remove a disposable generated instance |
+| `mcg_resolve_class` | Resolve the exact generated modifier class descriptor |
+| `mcg_apply_modifier` | Compile and apply a typed MCG modifier safely |
+| `mcg_inspect_instance` | Verify graph identity and inspect a live MCG modifier |
+| `mcg_set_node_parameter` | Retarget one supported scalar node parameter |
+| `mcg_restore_checkpoint` | Restore an opaque checkpoint with hash protection |
+| `mcg_cleanup_workspace` | Remove one graph family or the temporary MCG workspace |
+| `mcg_reload_operators` | Explicitly refresh Max's global MCG operator depot |
+
+> **Work in progress** — the plugin and layout integrations below (tyFlow, Forest Pack, RailClone, Floor plan) are early-stage and may be incomplete or change between releases. Everything listed above is stable.
 
 ### tyFlow (WIP)
 

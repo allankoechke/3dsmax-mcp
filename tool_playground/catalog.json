@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "tool_count": 115,
+  "tool_count": 138,
   "starter_tools": [
     "query_scene",
     "get_session_context",
@@ -34,7 +34,7 @@
     {
       "name": "Scene",
       "hint": "Scene queries, instancing, management",
-      "tool_count": 4,
+      "tool_count": 5,
       "categories": [
         {
           "name": "Scene",
@@ -42,7 +42,8 @@
             "get_dependencies",
             "get_instances",
             "manage_scene",
-            "query_scene"
+            "query_scene",
+            "undo_last"
           ]
         }
       ]
@@ -94,7 +95,7 @@
     {
       "name": "Materials",
       "hint": "Assign, textures, palette laydown, smart import",
-      "tool_count": 17,
+      "tool_count": 19,
       "categories": [
         {
           "name": "Material Network",
@@ -107,10 +108,12 @@
           "name": "Materials",
           "tools": [
             "assign_material",
+            "backup_material_library",
             "batch_replace_materials",
             "create_material_from_textures",
             "create_shell_material",
             "create_texture_map",
+            "get_material_library",
             "get_material_slots",
             "get_materials",
             "palette_laydown",
@@ -229,8 +232,8 @@
     },
     {
       "name": "Specialty",
-      "hint": "tyFlow, RailClone, Data Channel, etc.",
-      "tool_count": 28,
+      "hint": "MCG, Data Channel, tyFlow, RailClone, etc.",
+      "tool_count": 45,
       "categories": [
         {
           "name": "Data Channel",
@@ -238,8 +241,10 @@
             "add_data_channel",
             "add_dc_script_operator",
             "inspect_data_channel",
+            "list_dc_operators",
             "list_dc_presets",
             "load_dc_preset",
+            "manage_data_channel_stack",
             "set_data_channel_operator"
           ]
         },
@@ -255,6 +260,26 @@
           "name": "Floor Plan",
           "tools": [
             "build_floor_plan"
+          ]
+        },
+        {
+          "name": "Max Creation Graph",
+          "tools": [
+            "mcg_apply_modifier",
+            "mcg_apply_patch",
+            "mcg_cleanup_workspace",
+            "mcg_compile_graph",
+            "mcg_create_graph",
+            "mcg_get_context",
+            "mcg_inspect_graph",
+            "mcg_inspect_instance",
+            "mcg_list_graphs",
+            "mcg_reload_operators",
+            "mcg_resolve_class",
+            "mcg_restore_checkpoint",
+            "mcg_search_operators",
+            "mcg_set_node_parameter",
+            "mcg_test_tool"
           ]
         },
         {
@@ -325,6 +350,31 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Other",
+      "hint": "",
+      "tool_count": 3,
+      "categories": [
+        {
+          "name": "Advancedvision",
+          "tools": [
+            "advancedvision"
+          ]
+        },
+        {
+          "name": "Keyframes",
+          "tools": [
+            "keyframe_tracks"
+          ]
+        },
+        {
+          "name": "Render Automations",
+          "tools": [
+            "render_automations"
+          ]
+        }
+      ]
     }
   ],
   "group_order": [
@@ -342,7 +392,7 @@
   "tools": [
     {
       "name": "execute_maxscript",
-      "description": "Execute arbitrary MAXScript code in 3ds Max and return the result.",
+      "description": "Execute arbitrary MAXScript in 3ds Max and return the result.",
       "category": "Advanced",
       "group": "Advanced",
       "module": "execute",
@@ -1059,7 +1109,7 @@
     },
     {
       "name": "inspect_object",
-      "description": "Get a deep exploratory object summary.",
+      "description": "Get a deep exploratory object summary (props, modifiers, material, instances).",
       "category": "Inspect",
       "group": "Inspect",
       "module": "inspect",
@@ -1547,12 +1597,14 @@
           },
           "params": {
             "type": "string"
+          },
+          "handles": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
           }
-        },
-        "required": [
-          "names",
-          "material_class"
-        ]
+        }
       },
       "example": {
         "names": [
@@ -1563,6 +1615,34 @@
       },
       "risk": "changes_scene",
       "routing": "native:assign_material",
+      "starter": false
+    },
+    {
+      "name": "backup_material_library",
+      "description": "Save material-library scratchpads to .mat files without changing the scene.",
+      "category": "Materials",
+      "group": "Materials",
+      "module": "materials",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "backup_dir": {
+            "type": "string"
+          },
+          "file_path": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          }
+        }
+      },
+      "example": {},
+      "risk": "read",
+      "routing": "maxscript",
       "starter": false
     },
     {
@@ -1581,6 +1661,9 @@
             }
           },
           "preview": {
+            "type": "boolean"
+          },
+          "dry_run": {
             "type": "boolean"
           }
         },
@@ -1716,6 +1799,28 @@
       },
       "risk": "changes_scene",
       "routing": "native:create_texture_map",
+      "starter": false
+    },
+    {
+      "name": "get_material_library",
+      "description": "Inspect the active material library scratchpad and Material Editor slots.",
+      "category": "Materials",
+      "group": "Materials",
+      "module": "materials",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "include_empty_slots": {
+            "type": "boolean"
+          }
+        }
+      },
+      "example": {},
+      "risk": "safe",
+      "routing": "maxscript",
       "starter": false
     },
     {
@@ -1883,12 +1988,11 @@
           "properties": {},
           "sub_material_index": {
             "type": "integer"
+          },
+          "handle": {
+            "type": "integer"
           }
-        },
-        "required": [
-          "name",
-          "properties"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget",
@@ -1920,13 +2024,11 @@
           },
           "sub_material_index": {
             "type": "integer"
+          },
+          "handle": {
+            "type": "integer"
           }
-        },
-        "required": [
-          "name",
-          "property",
-          "value"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget",
@@ -1963,17 +2065,13 @@
           },
           "source_index": {
             "type": "integer"
+          },
+          "handle": {
+            "type": "integer"
           }
-        },
-        "required": [
-          "name",
-          "sub_material_index"
-        ]
+        }
       },
-      "example": {
-        "name": "$first_object",
-        "sub_material_index": 1
-      },
+      "example": {},
       "risk": "changes_scene",
       "routing": "native:set_sub_material",
       "starter": false
@@ -2106,12 +2204,11 @@
           },
           "params": {
             "type": "string"
+          },
+          "handle": {
+            "type": "integer"
           }
-        },
-        "required": [
-          "name",
-          "modifier"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget",
@@ -2133,13 +2230,16 @@
           "name": {
             "type": "string"
           },
+          "handle": {
+            "type": "integer"
+          },
           "to_index": {
             "type": "integer"
+          },
+          "dry_run": {
+            "type": "boolean"
           }
-        },
-        "required": [
-          "name"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget"
@@ -2162,12 +2262,11 @@
           },
           "modifier_index": {
             "type": "integer"
+          },
+          "handle": {
+            "type": "integer"
           }
-        },
-        "required": [
-          "name",
-          "modifier_index"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget",
@@ -2191,12 +2290,11 @@
           },
           "modifier": {
             "type": "string"
+          },
+          "handle": {
+            "type": "integer"
           }
-        },
-        "required": [
-          "name",
-          "modifier"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget",
@@ -2270,6 +2368,9 @@
           "name": {
             "type": "string"
           },
+          "handle": {
+            "type": "integer"
+          },
           "modifier_name": {
             "type": "string"
           },
@@ -2285,10 +2386,7 @@
           "enabled_in_renders": {
             "type": "boolean"
           }
-        },
-        "required": [
-          "name"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget",
@@ -2491,11 +2589,17 @@
             "items": {
               "type": "string"
             }
+          },
+          "handles": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "dry_run": {
+            "type": "boolean"
           }
-        },
-        "required": [
-          "names"
-        ]
+        }
       },
       "example": {
         "names": [
@@ -2532,7 +2636,7 @@
     },
     {
       "name": "get_object_properties",
-      "description": "Get compact properties of a named object in the 3ds Max scene.",
+      "description": "Get compact properties of a named object (transform, class, material name).",
       "category": "Objects",
       "group": "Objects",
       "module": "objects",
@@ -2541,11 +2645,11 @@
         "properties": {
           "name": {
             "type": "string"
+          },
+          "handle": {
+            "type": "integer"
           }
-        },
-        "required": [
-          "name"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget"
@@ -2621,13 +2725,11 @@
           },
           "value": {
             "type": "string"
+          },
+          "handle": {
+            "type": "integer"
           }
-        },
-        "required": [
-          "name",
-          "property",
-          "value"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget",
@@ -2706,7 +2808,7 @@
     },
     {
       "name": "transform_object",
-      "description": "Move, rotate, and/or scale an object by the given offsets.",
+      "description": "Move, rotate, and/or scale an object by world/local offsets.",
       "category": "Objects",
       "group": "Objects",
       "module": "transform",
@@ -2715,6 +2817,9 @@
         "properties": {
           "name": {
             "type": "string"
+          },
+          "handle": {
+            "type": "integer"
           },
           "move": {
             "type": "array",
@@ -2737,10 +2842,7 @@
           "coordinate_system": {
             "type": "string"
           }
-        },
-        "required": [
-          "name"
-        ]
+        }
       },
       "example": {
         "name": "MCP_SmokeTarget",
@@ -2914,6 +3016,197 @@
       "starter": false
     },
     {
+      "name": "advancedvision",
+      "description": "Single compact visual-assist tool for viewport-editing experiments.",
+      "category": "Advancedvision",
+      "group": "Other",
+      "module": "advancedvision",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "target": {
+            "type": "string"
+          },
+          "max_ids": {
+            "type": "integer"
+          },
+          "id_base": {
+            "type": "integer"
+          },
+          "text_size": {
+            "type": "number"
+          },
+          "hud": {
+            "type": "boolean"
+          }
+        }
+      },
+      "example": {},
+      "risk": "read",
+      "routing": "native:advancedvision",
+      "starter": false
+    },
+    {
+      "name": "keyframe_tracks",
+      "description": "Native keyframing: list inspects tracks read-only; set keys at time/times; value or move writes keyed poses without transform_object; match copies between times; loop closes f1->f100 on parented rigs (order=hierarchy); style sets tangents; ort sets out-of-range.",
+      "category": "Keyframes",
+      "group": "Other",
+      "module": "keyframes",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tracks": {
+            "type": "string"
+          },
+          "track_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "time": {
+            "type": "number"
+          },
+          "times": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "value": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "move": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "time_unit": {
+            "type": "string"
+          },
+          "match": {
+            "type": "string"
+          },
+          "from_time": {
+            "type": "number"
+          },
+          "to_time": {
+            "type": "number"
+          },
+          "key_type": {
+            "type": "string"
+          },
+          "in_type": {
+            "type": "string"
+          },
+          "out_type": {
+            "type": "string"
+          },
+          "tcb": {
+            "type": "object"
+          },
+          "out_of_range": {
+            "type": "object"
+          },
+          "before": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          },
+          "ort_enabled": {
+            "type": "boolean"
+          },
+          "order": {
+            "type": "string"
+          },
+          "budget": {
+            "type": "object"
+          },
+          "max_tracks": {
+            "type": "integer"
+          },
+          "max_keys": {
+            "type": "integer"
+          },
+          "max_results": {
+            "type": "integer"
+          },
+          "include_samples": {
+            "type": "boolean"
+          }
+        }
+      },
+      "example": {
+        "action": "list",
+        "names": [
+          "MCP_SmokeTarget"
+        ],
+        "tracks": "position",
+        "from_time": 0,
+        "to_time": 100
+      },
+      "risk": "read",
+      "routing": "native:keyframe_tracks",
+      "starter": false
+    },
+    {
+      "name": "render_automations",
+      "description": "Arm a done-signal for the NEXT render, then report when it finishes.",
+      "category": "Render Automations",
+      "group": "Other",
+      "module": "render_automations",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "vfb": {
+            "type": "boolean"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "signal_path": {
+            "type": "string"
+          },
+          "watch_timeout_sec": {
+            "type": "integer"
+          }
+        }
+      },
+      "example": {},
+      "risk": "read",
+      "routing": "python",
+      "starter": false
+    },
+    {
       "name": "get_dependencies",
       "description": "Trace the reference graph for an object using refs.dependents / refs.dependentnodes.",
       "category": "Scene",
@@ -3044,6 +3337,9 @@
           },
           "capture": {
             "type": "boolean"
+          },
+          "unchanged_since": {
+            "type": "integer"
           }
         },
         "required": [
@@ -3059,8 +3355,23 @@
       "starter": true
     },
     {
+      "name": "undo_last",
+      "description": "Undo the last 3ds Max scene operation.",
+      "category": "Scene",
+      "group": "Scene",
+      "module": "scene_manage",
+      "schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "example": {},
+      "risk": "read",
+      "routing": "native:undo_last",
+      "starter": false
+    },
+    {
       "name": "get_bridge_status",
-      "description": "Ping the MCP bridge for protocol/transport metadata. Use when diagnosing connection errors, not as a session preamble.",
+      "description": "Ping the MCP bridge for protocol/transport metadata.",
       "category": "Connection",
       "group": "Setup",
       "module": "bridge",
@@ -3090,7 +3401,7 @@
     },
     {
       "name": "get_session_context",
-      "description": "Bundle bridge, capabilities, scene, and selection when broad live context is needed\u2014not before every task.",
+      "description": "Bundle bridge, capabilities, scene overview, and selection in one call.",
       "category": "Session",
       "group": "Setup",
       "module": "session_context",
@@ -3145,6 +3456,12 @@
           },
           "create_new": {
             "type": "boolean"
+          },
+          "expected_operator_count": {
+            "type": "integer"
+          },
+          "allow_executable": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -3173,7 +3490,7 @@
     },
     {
       "name": "add_dc_script_operator",
-      "description": "Add a MAXScript operator to a Data Channel modifier's internal stack.",
+      "description": "Add the legacy MAXScript input operator with explicit executable authorization.",
       "category": "Data Channel",
       "group": "Specialty",
       "module": "data_channel",
@@ -3200,6 +3517,15 @@
           },
           "create_new": {
             "type": "boolean"
+          },
+          "add_output": {
+            "type": "boolean"
+          },
+          "expected_operator_count": {
+            "type": "integer"
+          },
+          "allow_executable": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -3212,12 +3538,12 @@
         "script": ""
       },
       "risk": "advanced",
-      "routing": "maxscript",
+      "routing": "python",
       "starter": false
     },
     {
       "name": "inspect_data_channel",
-      "description": "Inspect a Data Channel modifier's operator graph.",
+      "description": "Inspect the active Data Channel stack in processing order.",
       "category": "Data Channel",
       "group": "Specialty",
       "module": "data_channel",
@@ -3228,6 +3554,12 @@
             "type": "string"
           },
           "modifier_index": {
+            "type": "integer"
+          },
+          "include_properties": {
+            "type": "boolean"
+          },
+          "max_properties": {
             "type": "integer"
           }
         },
@@ -3243,8 +3575,33 @@
       "starter": false
     },
     {
+      "name": "list_dc_operators",
+      "description": "Discover the live Data Channel operator catalog.",
+      "category": "Data Channel",
+      "group": "Specialty",
+      "module": "data_channel",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "include_properties": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "example": {},
+      "risk": "safe",
+      "routing": "maxscript",
+      "starter": false
+    },
+    {
       "name": "list_dc_presets",
-      "description": "List all available Data Channel modifier presets.",
+      "description": "List available Data Channel presets without creating a scene object.",
       "category": "Data Channel",
       "group": "Specialty",
       "module": "data_channel",
@@ -3277,6 +3634,9 @@
           },
           "create_new": {
             "type": "boolean"
+          },
+          "expected_operator_count": {
+            "type": "integer"
           }
         },
         "required": [
@@ -3293,8 +3653,64 @@
       "starter": false
     },
     {
+      "name": "manage_data_channel_stack",
+      "description": "Safely edit a Data Channel stack.",
+      "category": "Data Channel",
+      "group": "Specialty",
+      "module": "data_channel",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "operator_index": {
+            "type": "integer"
+          },
+          "order": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "frozen": {
+            "type": "boolean"
+          },
+          "blend_mode": {
+            "type": "string"
+          },
+          "display": {
+            "type": "boolean"
+          },
+          "modifier_index": {
+            "type": "integer"
+          },
+          "expected_operator_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "action"
+        ]
+      },
+      "example": {
+        "name": "$first_object",
+        "action": "list"
+      },
+      "risk": "read",
+      "routing": "maxscript",
+      "starter": false
+    },
+    {
       "name": "set_data_channel_operator",
-      "description": "Set properties on a specific operator in a Data Channel modifier.",
+      "description": "Set properties on a 1-based visible stack operator with rollback on error.",
       "category": "Data Channel",
       "group": "Specialty",
       "module": "data_channel",
@@ -3312,6 +3728,12 @@
           },
           "modifier_index": {
             "type": "integer"
+          },
+          "expected_operator_count": {
+            "type": "integer"
+          },
+          "allow_executable": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -3437,6 +3859,498 @@
       "example": {},
       "risk": "advanced",
       "routing": "maxscript",
+      "starter": false
+    },
+    {
+      "name": "mcg_apply_modifier",
+      "description": "Compile and safely apply a temp MCG modifier using typed node references.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          },
+          "target_name": {
+            "type": "string"
+          },
+          "target_handle": {
+            "type": "integer"
+          },
+          "node_parameters": {},
+          "allow_executable": {
+            "type": "boolean"
+          },
+          "timeout_seconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "graph_id"
+        ]
+      },
+      "example": {
+        "graph_id": ""
+      },
+      "risk": "changes_scene",
+      "routing": "native:mcg_apply_modifier",
+      "starter": false
+    },
+    {
+      "name": "mcg_apply_patch",
+      "description": "Patch a temp graph transactionally, then compile/test and roll back on failure.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          },
+          "expected_hash": {
+            "type": "string"
+          },
+          "operations": {
+            "type": "array",
+            "items": {}
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "compile_graph": {
+            "type": "boolean"
+          },
+          "verify": {
+            "type": "boolean"
+          },
+          "verification": {},
+          "rollback_on_failure": {
+            "type": "boolean"
+          },
+          "allow_executable": {
+            "type": "boolean"
+          },
+          "timeout_seconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "graph_id",
+          "expected_hash",
+          "operations"
+        ]
+      },
+      "example": {
+        "graph_id": "",
+        "expected_hash": "",
+        "operations": []
+      },
+      "risk": "advanced",
+      "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "mcg_cleanup_workspace",
+      "description": "Delete one temp graph family or the entire process-scoped MCG workspace.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          }
+        }
+      },
+      "example": {},
+      "risk": "advanced",
+      "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "mcg_compile_graph",
+      "description": "Validate, compile, and optionally test one temp MCG graph.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          },
+          "verify": {
+            "type": "boolean"
+          },
+          "verification": {},
+          "allow_executable": {
+            "type": "boolean"
+          },
+          "timeout_seconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "graph_id"
+        ]
+      },
+      "example": {
+        "graph_id": ""
+      },
+      "risk": "advanced",
+      "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "mcg_create_graph",
+      "description": "Fork an Autodesk/source template into temp storage and optionally compile/test it.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "compile_graph": {
+            "type": "boolean"
+          },
+          "verify": {
+            "type": "boolean"
+          },
+          "verification": {},
+          "allow_executable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "identifier"
+        ]
+      },
+      "example": {
+        "kind": "",
+        "identifier": ""
+      },
+      "risk": "advanced",
+      "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "mcg_get_context",
+      "description": "Return the live MCG compiler, temp workspace, templates, and safety context.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "example": {},
+      "risk": "read",
+      "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "mcg_inspect_graph",
+      "description": "Inspect a session graph or read-only source as normalized graph data.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "graph_id"
+        ]
+      },
+      "example": {
+        "graph_id": ""
+      },
+      "risk": "read",
+      "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "mcg_inspect_instance",
+      "description": "Inspect one MCG modifier after proving its class ID and graph identity.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          },
+          "modifier_index": {
+            "type": "integer"
+          },
+          "target_name": {
+            "type": "string"
+          },
+          "target_handle": {
+            "type": "integer"
+          },
+          "allow_executable": {
+            "type": "boolean"
+          },
+          "timeout_seconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "graph_id"
+        ]
+      },
+      "example": {
+        "graph_id": ""
+      },
+      "risk": "read",
+      "routing": "native:mcg_inspect_instance",
+      "starter": false
+    },
+    {
+      "name": "mcg_list_graphs",
+      "description": "List session graphs or read-only installed/sample graph sources.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "example": {},
+      "risk": "read",
+      "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "mcg_reload_operators",
+      "description": "Explicitly refresh the global MCG depot; not used by the normal per-graph loop.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "example": {},
+      "risk": "advanced",
+      "routing": "maxscript",
+      "starter": false
+    },
+    {
+      "name": "mcg_resolve_class",
+      "description": "Compile a temp modifier graph and resolve its exact native class descriptor.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          },
+          "allow_executable": {
+            "type": "boolean"
+          },
+          "timeout_seconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "graph_id"
+        ]
+      },
+      "example": {
+        "graph_id": ""
+      },
+      "risk": "advanced",
+      "routing": "native:mcg_resolve_class",
+      "starter": false
+    },
+    {
+      "name": "mcg_restore_checkpoint",
+      "description": "Transactionally restore an opaque checkpoint, then optionally compile/test it.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          },
+          "checkpoint_token": {
+            "type": "string"
+          },
+          "expected_hash": {
+            "type": "string"
+          },
+          "compile_graph": {
+            "type": "boolean"
+          },
+          "verify": {
+            "type": "boolean"
+          },
+          "verification": {},
+          "allow_executable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "graph_id",
+          "checkpoint_token",
+          "expected_hash"
+        ]
+      },
+      "example": {
+        "graph_id": "",
+        "checkpoint_token": "",
+        "expected_hash": ""
+      },
+      "risk": "advanced",
+      "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "mcg_search_operators",
+      "description": "Search typed inputs plus value(0)/function(1) outputs; fall back to XML offline.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "example": {},
+      "risk": "read",
+      "routing": "python",
+      "starter": false
+    },
+    {
+      "name": "mcg_set_node_parameter",
+      "description": "Safely retarget one scalar node parameter on a compiled MCG modifier.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          },
+          "modifier_index": {
+            "type": "integer"
+          },
+          "parameter": {
+            "type": "string"
+          },
+          "target_name": {
+            "type": "string"
+          },
+          "target_handle": {
+            "type": "integer"
+          },
+          "source_name": {
+            "type": "string"
+          },
+          "source_handle": {
+            "type": "integer"
+          },
+          "allow_executable": {
+            "type": "boolean"
+          },
+          "timeout_seconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "graph_id",
+          "modifier_index",
+          "parameter"
+        ]
+      },
+      "example": {
+        "graph_id": "",
+        "modifier_index": 1,
+        "parameter": ""
+      },
+      "risk": "changes_scene",
+      "routing": "native:mcg_set_node_parameter",
+      "starter": false
+    },
+    {
+      "name": "mcg_test_tool",
+      "description": "Compile the current hash, then create/inspect/delete one disposable instance.",
+      "category": "Max Creation Graph",
+      "group": "Specialty",
+      "module": "mcg",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "graph_id": {
+            "type": "string"
+          },
+          "verification": {},
+          "allow_executable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "graph_id"
+        ]
+      },
+      "example": {
+        "graph_id": ""
+      },
+      "risk": "advanced",
+      "routing": "python",
       "starter": false
     },
     {
