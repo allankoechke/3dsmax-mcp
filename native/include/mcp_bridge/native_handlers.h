@@ -38,6 +38,14 @@ namespace NativeHandlers {
     std::string MakeModifierUnique(const std::string& params, MCPBridgeGUP* gup);
     std::string SetModifierProperty(const std::string& params, MCPBridgeGUP* gup);
 
+    // Max Creation Graph scripted modifiers. These handlers deliberately use
+    // exact class IDs and typed PB2 node references instead of MAXScript class
+    // evaluation so a stale/colliding generated wrapper cannot be applied.
+    std::string MCGResolveClass(const std::string& params, MCPBridgeGUP* gup);
+    std::string MCGApplyModifier(const std::string& params, MCPBridgeGUP* gup);
+    std::string MCGSetNodeParameter(const std::string& params, MCPBridgeGUP* gup);
+    std::string MCGInspectInstance(const std::string& params, MCPBridgeGUP* gup);
+
     // Phase 3: Inspect & scene query
     std::string InspectObject(const std::string& params, MCPBridgeGUP* gup);
     std::string InspectProperties(const std::string& params, MCPBridgeGUP* gup);

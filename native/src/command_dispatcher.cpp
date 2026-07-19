@@ -119,6 +119,8 @@ static bool IsMutatingNativeHandler(const std::string& cmd_type) {
         "native:make_modifier_unique",
         "native:set_modifier_property",
         "native:batch_modify",
+        "native:mcg_apply_modifier",
+        "native:mcg_set_node_parameter",
         "native:replicate_material",
         "native:write_osl_shader",
         "native:set_parent",
@@ -476,6 +478,15 @@ std::string CommandDispatcher::Dispatch(
             result = NativeHandlers::MakeModifierUnique(command, gup);
         } else if (cmd_type == "native:set_modifier_property" || cmd_type == "native:batch_modify") {
             result = NativeHandlers::SetModifierProperty(command, gup);
+        // Max Creation Graph scripted modifiers
+        } else if (cmd_type == "native:mcg_resolve_class") {
+            result = NativeHandlers::MCGResolveClass(command, gup);
+        } else if (cmd_type == "native:mcg_apply_modifier") {
+            result = NativeHandlers::MCGApplyModifier(command, gup);
+        } else if (cmd_type == "native:mcg_set_node_parameter") {
+            result = NativeHandlers::MCGSetNodeParameter(command, gup);
+        } else if (cmd_type == "native:mcg_inspect_instance") {
+            result = NativeHandlers::MCGInspectInstance(command, gup);
         // Phase 3: Inspect & scene query
         } else if (cmd_type == "native:inspect_object") {
             result = NativeHandlers::InspectObject(command, gup);

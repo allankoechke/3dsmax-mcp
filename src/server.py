@@ -55,6 +55,10 @@ _READ_ONLY_TOOLS = {
     "walk_references",
     "map_class_relationships",
     "learn_scene_patterns",
+    "mcg_get_context",
+    "mcg_list_graphs",
+    "mcg_inspect_graph",
+    "mcg_search_operators",
 }
 
 _DESTRUCTIVE_TOOLS = {
@@ -71,6 +75,8 @@ _DESTRUCTIVE_TOOLS = {
     "render_cancel",
     "delete_effect",
     "undo_last",
+    "mcg_cleanup_workspace",
+    "mcg_reload_operators",
 }
 
 _IDEMPOTENT_TOOLS = {
@@ -94,6 +100,10 @@ _IDEMPOTENT_TOOLS = {
     "capture_screen",
     "select_objects",
     "set_visibility",
+    "mcg_get_context",
+    "mcg_list_graphs",
+    "mcg_inspect_graph",
+    "mcg_search_operators",
 }
 
 
@@ -208,6 +218,7 @@ SPECIALTY_TOOL_MODULES = (
     "data_channel",
     "effects",
     "floor_plan",
+    "mcg",
     "railclone",
     "render",
     "render_automations",
@@ -281,6 +292,8 @@ def max_assistant() -> str:
         "For tyFlow maintenance, inspect with get_tyflow_info first; enable include_flow_properties/include_event_properties/include_operator_properties for deep readback before edits.\n"
         "For tyFlow creation/mutation, use create_tyflow, modify_tyflow_operator, set_tyflow_shape, set_tyflow_physx, and get_tyflow_particles.\n"
         "For RailClone maintenance, use get_railclone_style_graph to read the exposed style graph (bases/segments/parameters) before edits.\n"
+        "For Max Creation Graph work, use mcg_search_operators for typed ports, mcg_create_graph for a temp template fork, and mcg_apply_patch for the normal checkpoint-patch-compile-verify-rollback loop.\n"
+        "MCG mutations use opaque graph_id values and expected hashes; never ask the user to copy, compile, run, or install a generated graph manually. Keep retries bounded to eight iterations and do not call mcg_reload_operators in the normal per-graph loop.\n"
         "Prefer dedicated tools over raw MAXScript when available.\n"
         "Inspect objects/properties before edits when you do not already have the needed data.\n"
         "After any meaningful mutation, verify with query_scene(action=delta) or re-inspect.\n"

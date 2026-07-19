@@ -97,6 +97,24 @@ class ToolResponseTests(unittest.TestCase):
         self.assertEqual(payload["error"]["type"], "MAXScriptError")
         self.assertEqual(payload["hint"]["suggested_tools"], ["introspect_osl"])
 
+    def test_envelope_preserves_structured_error_details(self) -> None:
+        raw = {
+            "status": "error",
+            "error_type": "MCGCompileError",
+            "error": "compile failed",
+            "details": {
+                "graph_id": "graph_123",
+                "diagnostics": "Unknown operator",
+                "rolled_back": True,
+            },
+        }
+        with patch.dict(os.environ, {"MCP_TRIPBACK_MODE": "minimal"}, clear=False):
+            payload = envelope_result(raw, elapsed_ms=0.1)
+
+        self.assertEqual(payload["ok"], False)
+        self.assertEqual(payload["error"]["details"]["graph_id"], "graph_123")
+        self.assertEqual(payload["error"]["details"]["rolled_back"], True)
+
     def test_envelope_normalizes_string_hint(self) -> None:
         raw = {"status": "error", "error": "nope", "hint": "try scope=refs"}
         with patch.dict(os.environ, {"MCP_TRIPBACK_MODE": "minimal"}, clear=False):

@@ -241,6 +241,7 @@ def _normalize_error(
     code: Any = None,
     retryable: Any = None,
     hint: Any | None = None,
+    details: Any | None = None,
 ) -> dict[str, Any]:
     resolved = (
         ErrorCode(code)
@@ -255,6 +256,8 @@ def _normalize_error(
     }
     if hint is not None:
         error["hint"] = hint
+    if details is not None:
+        error["details"] = _json_safe(details)
     return error
 
 
@@ -269,6 +272,7 @@ def _error_from_result(result: Any, raw: Any) -> dict[str, Any] | None:
                 code=result.get("code"),
                 retryable=result.get("retryable"),
                 hint=result.get("hint"),
+                details=result.get("details"),
             )
     if isinstance(raw, str):
         stripped = raw.strip()
@@ -285,6 +289,7 @@ def _error_from_result(result: Any, raw: Any) -> dict[str, Any] | None:
                 code=structured.get("code"),
                 retryable=structured.get("retryable"),
                 hint=structured.get("hint"),
+                details=structured.get("details"),
             )
         lowered = stripped.lower()
         if lowered.startswith(_ERROR_PREFIXES) or any(s in lowered for s in _ERROR_SUBSTRINGS):
@@ -304,6 +309,7 @@ def _error_from_exception(exc: BaseException) -> dict[str, Any]:
             code=structured.get("code"),
             retryable=structured.get("retryable"),
             hint=structured.get("hint"),
+            details=structured.get("details"),
         )
 
     if isinstance(response, dict):
@@ -315,6 +321,7 @@ def _error_from_exception(exc: BaseException) -> dict[str, Any]:
                 code=structured.get("code"),
                 retryable=structured.get("retryable"),
                 hint=structured.get("hint"),
+                details=structured.get("details"),
             )
 
     return _normalize_error(error_type=exc.__class__.__name__, message=str(exc))

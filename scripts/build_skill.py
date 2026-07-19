@@ -42,7 +42,7 @@ When you encounter a bug, unexpected behavior, or discover a MAXScript/3ds Max/M
 
 ## Key Patterns
 - Tools registered via `@mcp.tool()` in `src/tools/*.py`
-- External MCP defaults to `MCP_TOOL_PROFILE=full`, registering core and specialty modules (`data_channel`, `effects`, `floor_plan`, `railclone`, `render`, `scattering`, `state_sets`, `tyflow`, `wire_params`, `chat`); set `MCP_TOOL_PROFILE=core` to expose only common scene/object/material/inspection tools.
+- External MCP defaults to `MCP_TOOL_PROFILE=full`, registering core and specialty modules (`data_channel`, `effects`, `floor_plan`, `mcg`, `railclone`, `render`, `scattering`, `state_sets`, `tyflow`, `wire_params`, `chat`); set `MCP_TOOL_PROFILE=core` to expose only common scene/object/material/inspection tools.
 - Direct scene reads use `query_scene` and `get_session_context`; use repo/source inspection only for code, build, packaging, or debugging requests.
 - All tools send MAXScript strings to 3ds Max via `client.send_command()`
 - MAXScript results returned as JSON strings via manual concatenation
