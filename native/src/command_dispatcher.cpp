@@ -214,10 +214,17 @@ static std::string NormalizeNativeError(const std::string& message) {
 class NativeUndoTransaction {
 public:
     explicit NativeUndoTransaction(const std::string& cmd_type)
-        : active_(true) {
+        : active_(false) {
+        // theHold is global and does not tolerate interleaved Begin/Accept
+        // pairs. If a hold is already open (user mid-operation, or any other
+        // code path), run without our own transaction rather than nesting —
+        // an Accept/Cancel here would commit or roll back someone else's
+        // restore records.
+        if (theHold.Holding()) return;
         std::wstring label = L"MCP " + HandlerHelpers::Utf8ToWide(cmd_type);
         label_ = MSTR(label.c_str());
         theHold.Begin();
+        active_ = true;
     }
 
     ~NativeUndoTransaction() {
