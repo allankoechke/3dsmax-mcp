@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.0] — 2026-07-20
+
+Agentic tyFlow graph authoring with a shadow wiring ledger.
+
+### Added
+
+- `get_tyflow_graph`: full event/operator/property readback with structural hash, wiring edges, and ledger staleness (fresh/stale/absent). tyFlow's wiring is not readable at any layer (live-probed), so edges made through MCP are recorded in a ledger stored as AppData on the flow node.
+- `tyflow_apply_patch`: transactional graph edits (11 operation types) with expected-hash concurrency gate, checkpoint clone, empirical sim verification via particle counts at probe frames, and automatic rollback that restores the ledger.
+- Wiring on tyFlow's documented connect API: `connect_tyflow_operator`, `disconnect_tyflow_operator`, `set_tyflow_wiring_ledger` for reconciling foreign flows; `connect_tyflow_events` rewritten off dead property-name guessing.
+- Operator manifest: `harvest_tyflow_manifest` probes all 196 known operator types (property names, defaults, availability, executable flags) cached per tyFlow version; `list_tyflow_operators` queries the cache offline.
+- `tyflow_event_census`: per-event particle counts via temporary Mapping-channel instrumentation (mappingMode 7, live-verified).
+- `capture_tyflow_editor`: tyFlow editor screenshot plus per-event rectangles for visual wiring reconciliation.
+- Skill reference `tyflow-graphs.md`: closed-graph reality, ledger semantics, the agentic loop, and probe-gently rules.
+
+### Changed
+
+- Stability hardening against tyFlow Qt deadlocks: additive-only patches roll back via synthesized inverse operations instead of checkpoint-clone churn, and census/checkpoint/patch scripts pump posted messages at every churn point.
+- tyFlow name handling is canonical on the underscore form (`Send Out` reads back as `Send_Out`); lookups accept both.
+- tyFlow mutation tools (`create_tyflow`, `add_tyflow_event`, `modify_tyflow_operator`, `set_tyflow_shape`, `add_tyflow_collision`, `remove_tyflow_element`) now maintain the wiring ledger and structural hash.
+
+## [1.3.1] — 2026-07-20
+
+### Fixed
+
+- Tool replies never inline base64: captures always return the saved file path (`return_image` is deprecated and ignored), and the envelope spills any image or oversized binary payload to `%TEMP%\3dsmax-mcp\payloads` as an `image_file`/`bytes_file` reference.
+
 ## [1.3.0] — 2026-07-19
 
 Agentic Max Creation Graph authoring, robust Data Channel control, and portable MCG references.

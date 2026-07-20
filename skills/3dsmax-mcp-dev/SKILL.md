@@ -90,6 +90,12 @@ Debugging:
 - Edit: `modify_tyflow_operator`, `set_tyflow_shape`, `set_tyflow_physx`, `add_tyflow_collision`
 - Simulate: `reset_tyflow_simulation`, `get_tyflow_particle_count`, `get_tyflow_particles`
 
+For tyFlow graph work (event/operator topology, wiring, transactional edits, operator
+discovery, per-event census), read [tyflow-graphs.md](tyflow-graphs.md) completely before
+acting. It covers `get_tyflow_graph`, `tyflow_apply_patch`, the wiring ledger and its
+staleness rules, `harvest_tyflow_manifest` / `list_tyflow_operators`, `tyflow_event_census`,
+and `capture_tyflow_editor` for foreign flows.
+
 ### Forest Pack
 - `scatter_forest_pack` — surfaces + source geometry; auto footprint per variant
 

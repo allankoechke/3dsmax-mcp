@@ -225,6 +225,10 @@ SPECIALTY_TOOL_MODULES = (
     "scattering",
     "state_sets",
     "tyflow",
+    "tyflow_graph",
+    "tyflow_patch",
+    "tyflow_manifest",
+    "tyflow_census",
     "wire_params",
 )
 
