@@ -638,6 +638,8 @@ std::string CommandDispatcher::Dispatch(
             result = NativeHandlers::ListMacroscripts(command, gup);
         } else if (cmd_type == "native:list_action_tables") {
             result = NativeHandlers::ListActionTables(command, gup);
+        } else if (cmd_type == "native:main_thread") {
+            result = NativeHandlers::MainThread(command, gup);
         } else if (cmd_type == "native:introspect_interface") {
             result = NativeHandlers::IntrospectInterface(command, gup);
         } else if (cmd_type == "native:invoke_interface") {

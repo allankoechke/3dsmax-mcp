@@ -110,6 +110,7 @@ set(SOURCES
     src/handlers/effects_handlers.cpp
     src/handlers/render_handlers.cpp
     src/handlers/state_sets_handlers.cpp
+    src/handlers/mainthread_handlers.cpp
     src/handlers/discovery_handlers.cpp
     src/handlers/chat_handlers.cpp
     src/handlers/tool_test_handlers.cpp

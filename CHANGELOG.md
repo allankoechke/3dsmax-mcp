@@ -8,6 +8,7 @@ Agentic tyFlow graph authoring with a shadow wiring ledger.
 
 ### Added
 
+- `main_thread`: main/UI-thread hygiene. Lists redraw-views callbacks, live .NET timers held in globals, general-callback count, and playback state — `callbacks.show()` misses redraw callbacks and timers. `action=native_threads` attributes every process thread to its owning DLL with per-thread CPU sampled over ~500 ms, so a chugging native plugin is visible even though `SetTimer`/`RegisterNotification` have no enumeration API. Kill actions cover redraw callbacks, timers, and callback ids.
 - `get_tyflow_graph`: full event/operator/property readback with structural hash, wiring edges, and ledger staleness (fresh/stale/absent). tyFlow's wiring is not readable at any layer (live-probed), so edges made through MCP are recorded in a ledger stored as AppData on the flow node.
 - `tyflow_apply_patch`: transactional graph edits (11 operation types) with expected-hash concurrency gate, checkpoint clone, empirical sim verification via particle counts at probe frames, and automatic rollback that restores the ledger.
 - Wiring on tyFlow's documented connect API: `connect_tyflow_operator`, `disconnect_tyflow_operator`, `set_tyflow_wiring_ledger` for reconciling foreign flows; `connect_tyflow_events` rewritten off dead property-name guessing.

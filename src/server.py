@@ -211,6 +211,7 @@ CORE_TOOL_MODULES = (
     "controllers",
     "keyframes",
     "tool_test",
+    "mainthread",
 )
 
 SPECIALTY_TOOL_MODULES = (

@@ -168,4 +168,7 @@ namespace NativeHandlers {
     // Live tool smoke testing (in-Max production path)
     std::string InvokeTool(const std::string& params, MCPBridgeGUP* gup);
     std::string RunToolSmoke(const std::string& params, MCPBridgeGUP* gup);
+
+    // Main-thread (UI) hygiene: list what runs on the main thread and kill hooks
+    std::string MainThread(const std::string& params, MCPBridgeGUP* gup);
 }
