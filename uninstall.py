@@ -5,27 +5,30 @@ Run:  uv run python uninstall.py
 """
 
 import json
-import os
 import subprocess
-import sys
 from pathlib import Path
 
 import install
 
 ROOT = Path(__file__).resolve().parent
 
-MAX_DIRS = [
-    Path(r"C:\Program Files\Autodesk\3ds Max 2026"),
-    Path(r"C:\Program Files\Autodesk\3ds Max 2025"),
-    Path(r"C:\Program Files\Autodesk\3ds Max 2024"),
-]
+
+def dedupe_max_dirs(dirs: list[Path]) -> list[Path]:
+    """Collapse duplicate install paths when multiple year keys resolve to the same folder."""
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for d in dirs:
+        key = str(d.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(d)
+    return unique
 
 
-def find_max() -> Path | None:
-    for d in MAX_DIRS:
-        if (d / "3dsmax.exe").exists():
-            return d
-    return None
+def find_max_installations() -> list[Path]:
+    """All Max installs for 2023-2027: ADSK_3DSMAX_x64_{year} env var, then default path."""
+    return dedupe_max_dirs(install.find_max_installations())
 
 
 def delete_elevated(path: Path) -> bool:
@@ -56,37 +59,41 @@ def rmdir(path: Path):
     shutil.rmtree(path, ignore_errors=True)
 
 
+def remove_max_deployment(max_dir: Path) -> None:
+    """Remove native bridge and MAXScript listener from one Max installation."""
+    gup = max_dir / "plugins" / "mcp_bridge.gup"
+    ms_server = max_dir / "scripts" / "mcp" / "mcp_server.ms"
+    ms_auto = max_dir / "scripts" / "startup" / "mcp_autostart.ms"
+    ms_dir = max_dir / "scripts" / "mcp"
+
+    for f in [gup, ms_server, ms_auto]:
+        if f.exists():
+            if delete_elevated(f):
+                print(f"  Deleted: {f}")
+            else:
+                print(f"  FAILED: {f}")
+        else:
+            print(f"  Already gone: {f.name}")
+
+    if ms_dir.exists() and not any(ms_dir.iterdir()):
+        try:
+            ms_dir.rmdir()
+        except Exception:
+            pass
+
+
 def main():
     print("=" * 60)
     print("  3dsmax-mcp uninstaller")
     print("=" * 60)
 
     # 1. Remove native bridge + MAXScript from Max
-    max_dir = find_max()
-    if max_dir:
-        print(f"\nFound 3ds Max at: {max_dir}")
-
-        gup = max_dir / "plugins" / "mcp_bridge.gup"
-        ms_server = max_dir / "scripts" / "mcp" / "mcp_server.ms"
-        ms_auto = max_dir / "scripts" / "startup" / "mcp_autostart.ms"
-        ms_dir = max_dir / "scripts" / "mcp"
-
-        print("\n[1/4] Removing native bridge + MAXScript")
-        for f in [gup, ms_server, ms_auto]:
-            if f.exists():
-                if delete_elevated(f):
-                    print(f"  Deleted: {f}")
-                else:
-                    print(f"  FAILED: {f}")
-            else:
-                print(f"  Already gone: {f.name}")
-
-        # Remove empty mcp/ dir
-        if ms_dir.exists() and not any(ms_dir.iterdir()):
-            try:
-                ms_dir.rmdir()
-            except Exception:
-                pass
+    max_dirs = find_max_installations()
+    if max_dirs:
+        print(f"\n[1/4] Removing native bridge + MAXScript from {len(max_dirs)} installation(s)")
+        for max_dir in max_dirs:
+            print(f"\n  {max_dir}")
+            remove_max_deployment(max_dir)
     else:
         print("\n[1/4] SKIP: 3ds Max not found")
 
