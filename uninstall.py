@@ -5,6 +5,7 @@ Run:  uv run python uninstall.py
 """
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
