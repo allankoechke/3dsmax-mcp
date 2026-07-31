@@ -29,8 +29,6 @@ native/build-*/
 native/build2027/
 native/generated/
 !native/bin/
-native/bin/*.gup
-native/scripts/
 bundle/PackageContents.xml
 
 # Dev convenience scripts are personal — install.py is the user-facing installer,
