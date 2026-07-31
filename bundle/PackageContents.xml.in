@@ -8,8 +8,8 @@
   Description="MCP bridge for AI agents to control 3ds Max"
   AppVersion="__APP_VERSION__"
   FriendlyVersion="__APP_VERSION__"
-  ProductCode="{a7c3e1f4-2b8d-4e6a-9f0c-1d5e8b3a7c2f}"
-  UpgradeCode="{f4e2c8b1-6d3a-4f7e-8b0c-9e1d5a3f7b2e}">
+  ProductCode="{e2c7f59f-b2a3-489f-bf01-e2c6281126d0}"
+  UpgradeCode="{07bb0422-8d22-4fa8-bfb6-4cadc7b5cf4c}">
   <CompanyDetails Name="Metaverse Makers" />
   <Components Description="plugins parts">
     <RuntimeRequirements OS="Win64" Platform="3ds Max" SeriesMin="2023" SeriesMax="2023" />
